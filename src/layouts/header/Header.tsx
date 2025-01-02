@@ -81,7 +81,7 @@ export default function Header() {
                                 </button>
                             </li>
 
-                            <li className="nav-item dropdown header-without-profile">
+                            {/* <li className="nav-item dropdown header-without-profile">
                                 <a className="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     JB
                                 </a>
@@ -97,7 +97,7 @@ export default function Header() {
                                         </Link>
                                     </li>
                                 </ul>
-                            </li>
+                            </li> */}
                         </ul>
 
                     </div>
