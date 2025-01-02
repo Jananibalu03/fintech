@@ -1,0 +1,15 @@
+@media (min-width: 768px) {
+    .search-page .input-group {
+        max-width: 50%;
+    }
+
+    .search-sec {
+        flex-direction: row;
+    }
+}
+
+@media (min-width: 1024px) {
+    .search-page .input-group {
+        max-width: 30%;
+    }
+}

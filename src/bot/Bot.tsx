@@ -7,10 +7,12 @@ interface ChatMessage {
 }
 
 export default function Bot() {
+
     const [userMessage, setUserMessage] = useState("");
     const [chat, setChat] = useState<ChatMessage[]>([
         { message: "Welcome! Ask me about stocks!", isCentered: true },
     ]);
+
     const [isChatOpen, setIsChatOpen] = useState(false);
     const chatWindowRef = useRef<HTMLDivElement | null>(null);
 
@@ -66,6 +68,7 @@ export default function Bot() {
                                 </div>
                             ))}
                         </div>
+
                         <div className="bot-input-container">
                             <input
                                 type="text"
