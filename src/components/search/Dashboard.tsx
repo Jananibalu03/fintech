@@ -30,18 +30,21 @@ export default function Dashboard() {
     };
 
     return (
-        <section className="search-page p-5">
-            <div className="pt-md-5">
-                <h6>
+        <section className="search-page p-3 p-md-5">
+            <div className="pt-md-5 text-center">
+                <h6 className="mb-4">
                     "The stock market is a device for transferring money from the impatient to the patient."
                     – Warren Buffett
                 </h6>
 
                 <div className="d-flex flex-column flex-md-row justify-content-center align-items-center search-sec mt-4">
+                   
                     <div className="input-group mb-3 mb-md-0">
+                        
                         <span className="input-group-text" id="basic-addon1">
                             <FontAwesomeIcon icon={faSearch} />
                         </span>
+
                         <input
                             type="text"
                             className="form-control p-3 me-md-3"

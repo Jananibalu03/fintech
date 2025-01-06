@@ -97,7 +97,7 @@ p {
 }
 
 .bot-title {
-    background: #fff;
+    background: var(--white);
     text-align: center;
     padding: 15px;
     margin: 0;
@@ -135,7 +135,7 @@ p {
     padding: 20px;
     flex-grow: 1;
     overflow-y: auto;
-    background: #fff;
+    background: var(--white);
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
     -ms-overflow-style: none;
@@ -159,7 +159,7 @@ p {
 .bot-send-button {
     padding: 10px 20px;
     background-color: #00609c;
-    color: #fff;
+    color: var(--white);
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -192,7 +192,7 @@ p {
 
 footer {
     background-color: #1a1a1a;
-    color: #fff;
+    color: var(--white);
     padding: 20px 30px;
 }
 
@@ -203,7 +203,7 @@ footer p {
 }
 
 footer a {
-    color: #fff;
+    color: var(--white);
     text-decoration: none;
     transition: color 0.3s ease;
 }
@@ -266,7 +266,7 @@ footer .copyright {
 
 .search-btn {
     background-color: #00609c;
-    color: #fff;
+    color: var(--white);
     border: none;
     border-radius: 5px;
     font-size: 1rem;
@@ -286,7 +286,7 @@ footer .copyright {
 }
 
 .search-page .input-group-text {
-    background-color: #fff;
+    background-color: var(--white);
 }
 
 .timeframe-buttons .btn {
@@ -299,7 +299,7 @@ footer .copyright {
 
 .timeframe-buttons .btn-primary {
     background-color: black;
-    color: white;
+    color: var(--white);
 }
 
 .timeframe-buttons .btn:hover {
@@ -308,7 +308,7 @@ footer .copyright {
 
 .search-bg-section {
     background-image: url(./assets/images/search-bg.jpg);
-    color: #fff;
+    color: var(--white);
     height: 145px;
     background-position: center;
 }
@@ -343,3 +343,30 @@ footer .copyright {
     border-radius: 5px;
     padding: 0px 15px;
 }
+
+.top-trend {
+    background-image: url(./assets/images/top-trend-banner2.jpg);
+    height: 50%;
+    background-position: center;
+    color: var(--white);
+}
+
+.custom-card {
+    transition: all 0.3s ease-in-out;
+    cursor: pointer;
+    max-height: 100% !important;
+}
+
+.custom-card:hover {
+    background-color: #005995;
+    color: var(--white) !important;
+}
+
+.new-caed h4 {
+    /* color: #005995; */
+    font-weight: 600;
+}
+.toptrend-sub-banner{
+    background-image: url(./assets/images/top-trend-banner.jpg);
+}
+

@@ -13,3 +13,9 @@
         max-width: 30%;
     }
 }
+
+@media (max-width:426px) {
+    .search-page .input-group {
+        width: 90% !important;
+    }
+}   

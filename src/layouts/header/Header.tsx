@@ -29,7 +29,7 @@ export default function Header() {
                                 <a className="nav-link" aria-current="page" href="/dashboard">Watchlist</a>
                             </li>
                             <li className="nav-item">
-                                <a className="nav-link" href="#">Top trend</a>
+                                <a className="nav-link" href="/top-trend">Top trend</a>
                             </li>
                             <li className="nav-item">
                                 <a className="nav-link" href="#">Suggestions</a>

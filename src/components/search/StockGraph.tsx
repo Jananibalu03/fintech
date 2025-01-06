@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import ApexCharts from 'react-apexcharts';
 import { useDispatch, useSelector } from 'react-redux';
 import { stockDetails } from './SearchSlice';
+import { RootState } from '../../store/Store';
 
 interface StockData {
     date: string;
@@ -24,6 +25,10 @@ export default function StockGraph({ symbol }: { symbol: string }) {
     const [timeframe, setTimeframe] = useState<string>('1w');
     const stockData = useSelector((state: any) => state.search.stockDetailsPayload);
     const stockDetailsSuccess = useSelector((state: any) => state.search.stockDetailsSuccess);
+    const { loading } = useSelector(
+        (state: RootState) => state.search
+    );
+
     const dispatch = useDispatch()
 
     const apiKey = 'demo';
@@ -124,10 +129,8 @@ export default function StockGraph({ symbol }: { symbol: string }) {
                         };
                     })
                     .reverse();
-
                 stockDataArray = filteredData;
             }
-
 
             else if (timeframe === 'all') {
                 const filteredData = Object.entries(data['Monthly Time Series'] as TimeSeriesDaily)
@@ -248,7 +251,7 @@ export default function StockGraph({ symbol }: { symbol: string }) {
                             </div>
 
                             <div style={{ position: 'relative', height: '350px' }}>
-                                {/* {loading && (
+                                {loading && (
                                     <div
                                         style={{
                                             position: 'absolute',
@@ -262,11 +265,11 @@ export default function StockGraph({ symbol }: { symbol: string }) {
                                     >
                                         Loading...
                                     </div>
-                                )} */}
+                                )}
                                 <ApexCharts
                                     options={chartData.options}
                                     series={chartData.series}
-                                    type="line" 
+                                    type="line"
                                     height={350}
                                 />
                             </div>
@@ -279,7 +282,6 @@ export default function StockGraph({ symbol }: { symbol: string }) {
                     <div className="card">
                         <div className="card-body">
                             <h3 className="text-center py-3">Stock Details</h3>
-
                             <div className="container text-center">
                                 <div className="row pb-3">
                                     <div className="col-12 col-sm-6 col-md-4">

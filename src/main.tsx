@@ -9,11 +9,11 @@ import React from 'react'
 
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
+
     <Provider store={store}>
       <React.StrictMode>
         <App />
       </React.StrictMode>
-
     </Provider>
   </BrowserRouter>
 )
