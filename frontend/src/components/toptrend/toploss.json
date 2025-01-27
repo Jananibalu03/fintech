@@ -1,0 +1,51 @@
+{
+  "category": "Top Losers Today",
+  "description": "A list of stocks with the highest percentage loss today in the stock market.",
+  "stocks": [
+    {
+      "stockName": "The Real Good Food Company, Inc.",
+      "symbol": "RGF",
+      "currentPrice": 1.25,
+      "percentageChange": -65.16,
+      "sector": "Consumer Goods",
+      "marketCap": "N/A",
+      "description": "Producer of frozen foods, focusing on healthy and natural options."
+    },
+    {
+      "stockName": "Aptorum Group Limited",
+      "symbol": "APM",
+      "currentPrice": 1.61,
+      "percentageChange": -24.77,
+      "sector": "Healthcare",
+      "marketCap": "N/A",
+      "description": "Biopharmaceutical company focused on developing treatments for metabolic diseases."
+    },
+    {
+      "stockName": "OFF, Inc.",
+      "symbol": "OFF",
+      "currentPrice": 1.99,
+      "percentageChange": -24.62,
+      "sector": "Retail",
+      "marketCap": "N/A",
+      "description": "Clothing and accessories brand focusing on unique designs."
+    },
+    {
+      "stockName": "Intrusion Inc.",
+      "symbol": "INTZ",
+      "currentPrice": 3.17,
+      "percentageChange": -24.52,
+      "sector": "Technology",
+      "marketCap": "N/A",
+      "description": "Cybersecurity company offering protection against data breaches and cyberattacks."
+    },
+    {
+      "stockName": "Zeo Energy Corp.",
+      "symbol": "ZEO",
+      "currentPrice": 2.59,
+      "percentageChange": -24.49,
+      "sector": "Energy",
+      "marketCap": "N/A",
+      "description": "Energy company focused on natural gas and alternative energy solutions."
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "category": "Top Gainers Today",
+  "description": "A list of stocks with the highest percentage gain today in the stock market.",
+  "stocks": [
+    {
+      "stockName": "Boxlight Corporation",
+      "symbol": "BOXL",
+      "currentPrice": 1.68,
+      "percentageChange": 265.22,
+      "sector": "Technology",
+      "marketCap": "N/A",
+      "description": "Provider of educational technology solutions."
+    },
+    {
+      "stockName": "fuboTV Inc.",
+      "symbol": "FUBO",
+      "currentPrice": 5.06,
+      "percentageChange": 251.39,
+      "sector": "Technology",
+      "marketCap": "N/A",
+      "description": "Streaming television service focusing on sports."
+    },
+    {
+      "stockName": "Regional Health Properties, Inc.",
+      "symbol": "RHE",
+      "currentPrice": 3.56,
+      "percentageChange": 129.68,
+      "sector": "Healthcare",
+      "marketCap": "N/A",
+      "description": "Healthcare and senior living real estate investment trust."
+    },
+    {
+      "stockName": "SciSparc Ltd.",
+      "symbol": "SPRC",
+      "currentPrice": 1.07,
+      "percentageChange": 102.69,
+      "sector": "Healthcare",
+      "marketCap": "N/A",
+      "description": "Biopharmaceutical company focused on treatments for neurological diseases."
+    },
+    {
+      "stockName": "DHAI Holding US, Inc.",
+      "symbol": "DHAI",
+      "currentPrice": 2.92,
+      "percentageChange": 85.99,
+      "sector": "Technology",
+      "marketCap": "N/A",
+      "description": "Provider of AI-based technologies and solutions."
+    }
+  ]
+}
