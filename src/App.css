@@ -257,7 +257,7 @@ footer .copyright {
 .search-page {
     background-color: #FAFCFE;
     text-align: center;
-    height: 100vh;
+    height: 85vh;
 }
 
 .search-sec {
@@ -366,7 +366,14 @@ footer .copyright {
     /* color: #005995; */
     font-weight: 600;
 }
-.toptrend-sub-banner{
+
+.toptrend-sub-banner {
     background-image: url(./assets/images/top-trend-banner.jpg);
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
+.card {
+    border: 1px solid #f4f3f3 !important;
+}

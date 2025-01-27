@@ -9,7 +9,18 @@ import Search from './components/search/Search';
 import TopTrend from './components/toptrend/TopTrend';
 import VolatilityDetails from './components/toptrend/VolatilityDetails';
 import HighWeeks52 from './components/toptrend/HighWeeks52';
-import UnderFiveDollor from './components/toptrend/UnderFiveDollor';
+import UnderTendollar from './components/toptrend/UnderTendollar';
+import UnderFiftyDollar from './components/toptrend/UnderFiftyDollar';
+import NegativeBeta from './components/toptrend/NegativeBeta';
+import LowBeta from './components/toptrend/LowBeta';
+import HighRishandReward from './components/toptrend/HighRishandReward';
+import DebitFree from './components/toptrend/DebitFree';
+import Dividend from './components/toptrend/Dividend';
+import LowPE from './components/toptrend/LowPE';
+import TopGain from './components/toptrend/TopGain';
+import TopLoss from './components/toptrend/TopLoss';
+import TopPerform from './components/toptrend/TopPerform';
+import HighDividend from './components/toptrend/HighDividend';
 
 function App() {
   return (
@@ -20,12 +31,22 @@ function App() {
         <Route path='/dashboard' element={<Dashboard />} />
         <Route path='/search/:stock' element={<Search />} />
         <Route path='/top-trend' element={<TopTrend />} />
-        <Route path='/VolatilityDetails' element={<VolatilityDetails/>}/>
+        <Route path='/VolatilityDetails' element={<VolatilityDetails />} />
         <Route path='/52-week-high-stocks' element={<HighWeeks52 />} />
         <Route path='/52-week-low-stocks' element={<HighWeeks52 />} />
-        <Route path='/best-stocks-under-$5' element={<UnderFiveDollor />} />
+        <Route path='/best-stocks-under-$10' element={<UnderTendollar />} />
+        <Route path='/best-stocks-under-$50' element={<UnderFiftyDollar />} />
 
-
+        <Route path='/negative-beta' element={<NegativeBeta />} />
+        <Route path='/lowbeta' element={<LowBeta />} />
+        <Route path='/high-risk-high-reward' element={<HighRishandReward />} />
+        <Route path='/debitfree' element={<DebitFree />} />
+        <Route path='/dividend' element={<Dividend />} />
+        <Route path='/low-pe-ratio' element={<LowPE />} />
+        <Route path='/top-gain' element={<TopGain />} />
+        <Route path='/top-loss' element={<TopLoss />} />
+        <Route path='/top-perform' element={<TopPerform />} />
+        <Route path='/high-dividend' element={<HighDividend />} />
 
       </Routes>
       <Footer />

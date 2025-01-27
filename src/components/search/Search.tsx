@@ -7,14 +7,13 @@ export default function Search() {
 
     // const { symbol } = useParams<{ symbol: string }>();
 
-
     const location = useLocation();
     const { query, symbol } = location.state || {};
     const { loading, error } = useSelector(
         (state: RootState) => state.search
     );
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <p className='d-flex justify-content-center'>Loading...</p>;
     if (error) return <p>Error: {error}</p>;
 
     return (

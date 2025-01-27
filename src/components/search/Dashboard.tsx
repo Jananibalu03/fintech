@@ -6,6 +6,7 @@ import { searchData } from './SearchSlice';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../store/Store';
 
+
 export default function Dashboard() {
 
     const [query, setQuery] = useState('');

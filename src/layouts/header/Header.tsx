@@ -25,18 +25,16 @@ export default function Header() {
                     <div className="collapse navbar-collapse" id="navbarSupportedContent">
 
                         <ul className="navbar-nav me-auto mb-2 mb-lg-0">
-                            <li className="nav-item">
+                            {/* <li className="nav-item">
                                 <a className="nav-link" aria-current="page" href="/dashboard">Watchlist</a>
                             </li>
                             <li className="nav-item">
                                 <a className="nav-link" href="/top-trend">Top trend</a>
                             </li>
-                            <li className="nav-item">
-                                <a className="nav-link" href="#">Suggestions</a>
-                            </li>
+
                             <li className="nav-item">
                                 <a className="nav-link" href="#">Assistance</a>
-                            </li>
+                            </li> */}
                         </ul>
 
                         {/* <form className="d-flex" role="search">
@@ -49,6 +47,16 @@ export default function Header() {
                         </form> */}
 
                         <ul className="navbar-nav me-4 mb-lg-0">
+                            <li className="nav-item">
+                                <a className="nav-link" aria-current="page" href="/dashboard">Watchlist</a>
+                            </li>
+                            <li className="nav-item">
+                                <a className="nav-link" href="/top-trend">Top trend</a>
+                            </li>
+
+                            <li className="nav-item">
+                                <a className="nav-link" href="#">Assistance</a>
+                            </li>
                             {/* <li className="nav-item dropdown">
                                 <Link
                                     to="#"
@@ -75,13 +83,13 @@ export default function Header() {
                                 </ul>
                             </li> */}
 
-                            <li className="nav-item">
+                            {/* <li className="nav-item">
                                 <button type="button" className="login-btn">
                                     <a className="nav-link text-white" href="#">Login</a>
                                 </button>
-                            </li>
+                            </li> */}
 
-                            {/* <li className="nav-item dropdown header-without-profile">
+                            <li className="nav-item dropdown header-without-profile">
                                 <a className="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     JB
                                 </a>
@@ -97,7 +105,7 @@ export default function Header() {
                                         </Link>
                                     </li>
                                 </ul>
-                            </li> */}
+                            </li>
                         </ul>
 
                     </div>
