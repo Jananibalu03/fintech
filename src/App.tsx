@@ -6,7 +6,6 @@ import Footer from './layouts/footer/Footer';
 import "bootstrap/dist/css/bootstrap.min.css";
 import Dashboard from './components/search/Dashboard';
 import Search from './components/search/Search';
-import TopTrend from './components/toptrend/TopTrend';
 import VolatilityDetails from './components/toptrend/VolatilityDetails';
 import HighWeeks52 from './components/toptrend/HighWeeks52';
 import UnderTendollar from './components/toptrend/UnderTendollar';
@@ -21,6 +20,7 @@ import TopGain from './components/toptrend/TopGain';
 import TopLoss from './components/toptrend/TopLoss';
 import TopPerform from './components/toptrend/TopPerform';
 import HighDividend from './components/toptrend/HighDividend';
+import TopTrends from './components/toptrend/TopTrends';
 
 function App() {
   return (
@@ -30,13 +30,12 @@ function App() {
       <Routes>
         <Route path='/dashboard' element={<Dashboard />} />
         <Route path='/search/:stock' element={<Search />} />
-        <Route path='/top-trend' element={<TopTrend />} />
         <Route path='/VolatilityDetails' element={<VolatilityDetails />} />
         <Route path='/52-week-high-stocks' element={<HighWeeks52 />} />
         <Route path='/52-week-low-stocks' element={<HighWeeks52 />} />
         <Route path='/best-stocks-under-$10' element={<UnderTendollar />} />
         <Route path='/best-stocks-under-$50' element={<UnderFiftyDollar />} />
-
+        <Route path='/top-trend' element={<TopTrends/>}/>
         <Route path='/negative-beta' element={<NegativeBeta />} />
         <Route path='/lowbeta' element={<LowBeta />} />
         <Route path='/high-risk-high-reward' element={<HighRishandReward />} />
