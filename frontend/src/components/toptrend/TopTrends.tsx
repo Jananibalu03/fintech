@@ -1,6 +1,8 @@
+import React from 'react'
 import { useNavigate } from 'react-router-dom';
 
-export default function TopTrend() {
+export default function TopTrends() {
+
     const navigate = useNavigate();
 
     const trends = [
@@ -18,9 +20,9 @@ export default function TopTrend() {
         { title: "High Risk, High Reward", description: "Stocks that offer significant risk but also potential for large returns.", path: "/high-risk-high-reward" },
         { title: "Debit-Free Stocks", description: "Stocks with low or no debt, making them safer investments with stable returns.", path: "/debitfree" },
         { title: "Dividend", description: "Stocks offering reliable dividend payments, ideal for income-focused investors.", path: "/dividend" },
-       
         { title: "High Dividend Yield", description: "High-dividend stocks offer strong returns for income investors.", path: "/high-dividend" },
     ];
+
 
     return (
         <section>
@@ -43,5 +45,5 @@ export default function TopTrend() {
                 </div>
             </div>
         </section>
-    );
+    )
 }

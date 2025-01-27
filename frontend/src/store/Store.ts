@@ -1,10 +1,12 @@
 import { configureStore } from '@reduxjs/toolkit';
 import searchReducer from "../components/search/SearchSlice";
+import toptrendReducer from '../components/toptrend/Toptrend';
 
 
 const store = configureStore({
     reducer: {
-        search: searchReducer
+        search: searchReducer,
+        TopTrend: toptrendReducer
     },
 });
 
