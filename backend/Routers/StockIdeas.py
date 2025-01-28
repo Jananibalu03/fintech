@@ -1,5 +1,5 @@
 from fastapi import APIRouter,HTTPException,Query
-from Models.StocksModels import Symbols, StockInfo, StockPerformance, CompanyProfile
+from Models.StocksModels import Symbols, StockInfo, StockPerformance, CompanyProfile, FinancialMetrics, TechnicalIndicator
 from fastapi_sqlalchemy import db
 from fastapi.responses import JSONResponse
 from typing import List, Optional
@@ -18,6 +18,8 @@ def format_large_number(value):
     else:
         return str(value)  # For values less than 1,000
 
+def RoundTheValue(val):
+    return round(val,2)
 @StockIdeaRouter.get("/stock/volatility")
 async def Volatility(
     Search: Optional[str] = Query(None),
@@ -26,10 +28,12 @@ async def Volatility(
     ):
     skip = (page - 1) * limit
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.onedayvolatility,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
-                            CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, TechnicalIndicator.rsi,
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
@@ -64,8 +68,8 @@ async def Volatility(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "DividendYieldTTM": "213423", #----------------------------------------pending
-                "RSI": "32534", #----------------------------------------pending
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
+                "RSI": result.rsi, #----------------------------------------pending
                 "Sector": result.sector
               } 
               for result in results]
@@ -83,9 +87,11 @@ async def YearHigh(
     skip = (page - 1) * limit
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM, TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
@@ -121,8 +127,8 @@ async def YearHigh(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": "23414",#----------------------------------------------------pending
-                "DividendYieldTTM": "213423", #----------------------------------------pending
+                "RSI": result.rsi,#----------------------------------------------------pending
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
                 "Sector": result.sector
               } 
               for result in results]
@@ -138,9 +144,11 @@ async def YearLow(
     skip = (page - 1) * limit
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
@@ -176,8 +184,8 @@ async def YearLow(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": "23414",#----------------------------------------------------pending
-                "DividendYieldTTM": "213423", #----------------------------------------pending
+                "RSI": result.rsi,#----------------------------------------------------pending
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
                 "Sector": result.sector
               } 
               for result in results]
@@ -195,11 +203,12 @@ async def UnderTen_Dollar(
     skip = (page - 1) * limit
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    query = query.filter(StockInfo.price <= 10)
+    # query = query.filter(StockInfo.price <= 10)
     if Search:
         query = query.filter(
             or_(
@@ -235,7 +244,7 @@ async def UnderTen_Dollar(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": "23414",#----------------------------------------------------pending
+                "RSI": result.rsi,#----------------------------------------------------pending
                 "PERatio": result.pe,
                 "EPS": result.eps,
                 "Sector": result.sector
@@ -254,11 +263,12 @@ async def AboveTen_Dollar(
     skip = (page - 1) * limit
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    query = query.filter(StockInfo.price >= 10)
+    # query = query.filter(StockInfo.price >= 10)
     if Search:
         query = query.filter(
             or_(
@@ -294,8 +304,8 @@ async def AboveTen_Dollar(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": "23414",#----------------------------------------------------pending
-                "PE_ratio": result.pe,
+                "RSI": result.rsi,#----------------------------------------------------pending
+                "PERatio": result.pe,
                 "EPS": result.eps,
                 "Sector": result.sector
               } 
@@ -313,11 +323,12 @@ async def NegativeBeta(
     skip = (page - 1) * limit
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    query = query.filter(CompanyProfile.beta < 0)
+    # query = query.filter(CompanyProfile.beta < 0)
     if Search:
         query = query.filter(
             or_(
@@ -353,7 +364,7 @@ async def NegativeBeta(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": "23414",#----------------------------------------------------pending
+                "RSI": result.rsi,#----------------------------------------------------pending
                 "Sector": result.sector
               } 
               for result in results]
@@ -369,11 +380,12 @@ async def LowBeta(
     skip = (page - 1) * limit
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    query = query.filter(CompanyProfile.beta < 1)
+    # query = query.filter(CompanyProfile.beta < 1)
     if Search:
         query = query.filter(
             or_(
@@ -409,7 +421,7 @@ async def LowBeta(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": "23414",#----------------------------------------------------pending
+                "RSI": result.rsi,#----------------------------------------------------pending
                 "Sector": result.sector
               } 
               for result in results]
@@ -426,9 +438,12 @@ async def HighRisk_Reward(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.priceBookValueRatioTTM,FinancialMetrics.debtEquityRatioTTM,\
+                            FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     #  # Query for high-risk, high-reward stocks
@@ -477,13 +492,13 @@ async def HighRisk_Reward(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": "23414",#----------------------------------------------------pending
+                "RSI": result.rsi,#----------------------------------------------------pending
                 "PERatio": result.pe,
-                "PBRatioTTM": "pending", #----------------pending
+                "PBRatioTTM": result.priceBookValueRatioTTM, #----------------pending
                 "EarningGrowthTTM": "pending", #-----------------------pending
-                "DebttoEquityTTM": "pending", #--------------------------pending
+                "DebttoEquityTTM": result.debtEquityRatioTTM, #--------------------------pending
                 "RisktoRewardRatioTTM": "pending", #-------------------------pending
-                "DividendYieldTTM": "pending", #--------------------------pending
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #--------------------------pending
                 "Sector": result.sector
               } 
               for result in results]
@@ -500,9 +515,11 @@ async def DebtFree_Stocks(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.currentRatioTTM,FinancialMetrics.quickRatioTTM,FinancialMetrics.freeCashFlowPerShareTTM,
+                            FinancialMetrics.payoutRatioTTM).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -540,11 +557,11 @@ async def DebtFree_Stocks(
                 # "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "PERatio": result.pe,
-                "CurrentRatioTTM": "pending", #------------------pending
-                "QuickRatioTTM": "pending",
-                "FreeCashFlowTTM": "Pending",
+                "CurrentRatioTTM": result.currentRatioTTM, #------------------pending
+                "QuickRatioTTM": result.quickRatioTTM,
+                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "ProfitMarginsTTM": "pending",
-                "DividendPayoutRatioTTM": "pending",
+                "DividendPayoutRatioTTM": result.payoutRatioTTM,
                 "RevenueGrowthTTM": "pending",
                 "Sector": result.sector
               } 
@@ -562,9 +579,10 @@ async def Dividend(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -604,9 +622,9 @@ async def Dividend(
                 "EPS": result.eps,
                 "Beta":result.beta,
                 "PERatio": result.pe,
-                "FreeCashFlowTTM": "Pending",
+                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "ProfitMarginsTTM": "pending",
-                "DividendPayoutRatioTTM": "pending",
+                "DividendPayoutRatioTTM": result.payoutRatioTTM,
                 "RevenueGrowthTTM": "pending",
                 "Sector": result.sector
               } 
@@ -624,9 +642,11 @@ async def LowPERatio(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,
+                            FinancialMetrics.payoutRatioTTM,FinancialMetrics.debtEquityRatioTTM,FinancialMetrics.priceToBookRatioTTM).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -664,12 +684,12 @@ async def LowPERatio(
                 # "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "PERatio": result.pe,
-                "FreeCashFlowTTM": "Pending",
+                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "ProfitMarginsTTM": "pending",
-                "DividendPayoutRatioTTM": "pending",
+                "DividendPayoutRatioTTM": result.payoutRatioTTM,
                 "RevenueGrowthTTM": "pending",
-                "DebtToEquityRatioTTM": "pending",
-                "PriceToBookRatioTTM": "pending",
+                "DebtToEquityRatioTTM": result.debtEquityRatioTTM,
+                "PriceToBookRatioTTM": result.priceToBookRatioTTM,
                 "ProfitMarginTTM": "pending",
                 "Sector": result.sector
               } 
@@ -687,9 +707,10 @@ async def TodayTopGain(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -730,9 +751,9 @@ async def TodayTopGain(
                 "Beta":result.beta,
                 "PERatio": result.pe,
                 "RSI": "pending",
-                "FreeCashFlowTTM": "Pending",
+                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "ProfitMarginsTTM": "pending",
-                "DividendPayoutRatioTTM": "pending",
+                "DividendPayoutRatioTTM": result.payoutRatioTTM,
                 "RevenueGrowthTTM": "pending",
                 "Sector": result.sector
               } 
@@ -750,9 +771,11 @@ async def TodayTopLoss(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -792,10 +815,10 @@ async def TodayTopLoss(
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "PERatio": result.pe,
-                "RSI": "pending",
-                "FreeCashFlowTTM": "Pending",
+                "RSI": result.rsi,
+                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "ProfitMarginsTTM": "pending",
-                "DividendPayoutRatioTTM": "pending",
+                "DividendPayoutRatioTTM": result.payoutRatioTTM,
                 "RevenueGrowthTTM": "pending",
                 "Sector": result.sector
               } 
@@ -813,9 +836,11 @@ async def TopPerformance(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -860,10 +885,10 @@ async def TopPerformance(
                 "PERatio": result.pe,
                 "EPS": result.eps,
 
-                "RSI": "pending",
-                "FreeCashFlowTTM": "Pending",
+                "RSI": result.rsi,
+                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "ProfitMarginsTTM": "pending",
-                "DividendYieldTTM": "pending",
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
                 "RevenueGrowthTTM": "pending",
                 "Sector": result.sector
               } 
@@ -882,9 +907,11 @@ async def HighDividendYield(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.payoutRatioTTM,FinancialMetrics.dividendYielTTM,FinancialMetrics.dividendPerShareTTM,
+                            FinancialMetrics.freeCashFlowPerShareTTM).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -928,14 +955,70 @@ async def HighDividendYield(
                 "Beta":result.beta,
                 "PERatio": result.pe,
                 "EPS": result.eps,      
-                "PayoutRatioTTM": "pending",
-                "DividendYieldTTM": "pending",
-                "DividendPerShareTTM": "pending",
+                "PayoutRatioTTM": result.payoutRatioTTM,
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
+                "DividendPerShareTTM": result.dividendPerShareTTM,
                 "RevenueGrowthTTM": "pending",
                 "NetIncomeGrowth": "pending",
-                "FreeCashFlowTTM": "pending",
+                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "Sector": result.sector
               } 
               for result in results]
 
     return JSONResponse(result)
+
+
+@StockIdeaRouter.get("/stock/Search")
+async def SearchSymbols(symbol: str):
+
+    query = db.session.query(Symbols.Csymbol,Symbols.Cname).order_by(Symbols.Csymbol.asc())
+    
+
+    if symbol:
+        query = query.filter(
+            Symbols.Csymbol.ilike(f"%{symbol}%")            
+        )
+
+    results = query.all()
+
+    if not results:
+        return JSONResponse({"message": "Symbol Not Found!"})
+    
+    result =[{ 
+                "Symbol": result.Csymbol,
+                "Name": result.Cname,
+                
+              } 
+              for result in results]
+
+    return JSONResponse(result)
+
+@StockIdeaRouter.get("/stock/graph")
+async def GraphData(symbol: str):
+    
+    query = db.session.query(StockPerformance).filter(StockPerformance.symbol == symbol).order_by(StockPerformance.id.desc()).all()
+
+
+    if not query:
+        return JSONResponse({"message": "Data Not Found!"})
+    
+    data = [{  
+                "symbol": result.symbol,
+                "one_day": result.one_day,
+                "five_day": result.five_day,
+                "one_month": result.one_month,
+                "three_month": result.three_month,
+                "six_month": result.six_month,
+                "ytd": result.ytd,
+                "one_year": result.one_year,
+                "three_year": result.three_year,
+                "five_year": result.five_year,
+                "ten_year": result.ten_year,
+                "max_val": result.max_val,
+                        
+            } for result in query]
+    
+    return JSONResponse(data)
+    
+    
+    
