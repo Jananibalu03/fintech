@@ -6,6 +6,8 @@ export const BASE_URL = import.meta.env.VITE_BASE_URL;
 const baseApi = axios.create({
     baseURL: BASE_URL,
 });
+console.log(baseApi);
+
 
 baseApi.interceptors.request.use(
     function (config) {
