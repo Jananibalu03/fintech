@@ -22,6 +22,7 @@ export default function Bot() {
         }
     }, [chat]);
 
+    
     const handleSend = () => {
 
         const botResponses: Record<string, string> = {

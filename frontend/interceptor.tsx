@@ -6,8 +6,6 @@ export const BASE_URL = import.meta.env.VITE_BASE_URL;
 const baseApi = axios.create({
     baseURL: BASE_URL,
 });
-console.log(baseApi);
-
 
 baseApi.interceptors.request.use(
     function (config) {
@@ -45,11 +43,11 @@ baseApi.interceptors.response.use(
 function handleBadRequest(error: any) {
     toast.error(error.message);
 }
+
 function handleUnauthorizaton(error: any) {
-
     toast.error(error.message);
-
 }
+
 function handleNotFound(error: any) {
     toast.error(error);
 }
@@ -59,3 +57,4 @@ function handleServerError(error: any) {
 }
 
 export { baseApi };
+

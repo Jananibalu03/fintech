@@ -1,54 +1,84 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pagination } from "antd";
 import "antd/dist/reset.css";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchVolatility } from "./TopTrendSlice";
+import { RootState } from "../../store/Store";
+
 
 export default function VolatilityDetails() {
+
     const itemsPerPage = 10;
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState("");
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
+    const [sortConfig, setSortConfig] = useState({
+        key: "",
+        direction: "asc",
+    });
 
-    // const headers = [
-    //     { key: "symbol", label: "Symbol" },
-    //     { key: "stockName", label: "Stock Name" },
-    //     { key: "currentPrice", label: "Current Price ($)" },
-    //     { key: "volatility", label: "Volatility (%)" },
-    //     { key: "description", label: "Description" },
-    // ];
+    const dispatch = useDispatch();
+    const { fetchVolatilityPayload, error, loading } = useSelector(
+        (state: RootState) => state.TopTrend
+    );
 
-    // const sortedData = [...volatilityData.data].sort((a: any, b: any) => {
-    //     if (!sortConfig.key) return 0;
-    //     const aValue = a[sortConfig.key];
-    //     const bValue = b[sortConfig.key];
+    useEffect(() => {
+        dispatch<any>(fetchVolatility());
+    }, [dispatch]);
 
-    //     if (typeof aValue === "string") {
-    //         return sortConfig.direction === "ascending"
-    //             ? aValue.localeCompare(bValue)
-    //             : bValue.localeCompare(aValue);
-    //     }
-    //     return sortConfig.direction === "ascending" ? aValue - bValue : bValue - aValue;
-    // });
+    const filteredData =
+        fetchVolatilityPayload?.filter((item: any) =>
+            item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
+        ) || [];
 
-    // const filteredData = sortedData.filter((stock) =>
-    //     [stock.stockName, stock.symbol]
-    //         .some((field) => field.toLowerCase().includes(searchTerm.toLowerCase()))
-    // );
+    const sortedData = [...filteredData].sort((a, b) => {
+        if (sortConfig.key) {
+            const aValue = a[sortConfig.key];
+            const bValue = b[sortConfig.key];
+            if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+    });
 
+    const currentItems = sortedData.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
 
-    // const startIndex = (currentPage - 1) * itemsPerPage;
-    // const currentItems = filteredData.slice(startIndex, startIndex + itemsPerPage);
+    const handlePageChange = (page: number) => setCurrentPage(page);
 
+    const handleSort = (key: string) => {
+        const direction =
+            sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
+        setSortConfig({ key, direction });
+    };
 
-    // const handleSort = (key: any) => {
-    //     setSortConfig((prevState) => ({
-    //         key,
-    //         direction: prevState.key === key && prevState.direction === "ascending" ? "descending" : "ascending",
-    //     }));
-    // };
+    const headers = [
+        { label: "Symbol", key: "Symbol" },
+        { label: "Name", key: "Name" },
+        { label: "Price", key: "Price" },
+        // { label: "Change", key: "Change" },
+        { label: "1D Volatility", key: "1DVolatility" },
+        { label: "1D", key: "1D" },
+        { label: "1M", key: "1M" },
+        { label: "1Y", key: "1Y" },
+        { label: "Volume", key: "Volume" },
+        { label: "MarketCap", key: "MarketCap" },
+        { label: "SMA50", key: "SMA50" },
+        { label: "SMA200", key: "SMA200" },
+        { label: "Beta", key: "Beta" },
+        { label: "DividendYieldTTM", key: "DividendYieldTTM" },
+        { label: "RSI", key: "RSI" },
+        { label: "Sector", key: "Sector" },
+    ];
 
-    // const handlePageChange = (page: any) => {
-    //     setCurrentPage(page);
-    // };
+    const getNumberColor = (value: number | string) => {
+        const numericValue = Number(value);
+        if (isNaN(numericValue)) return "";
+        if (numericValue < 0) return "text-danger";
+        if (numericValue > 0) return "text-success";
+        return "";
+    };
 
     return (
         <section>
@@ -56,8 +86,8 @@ export default function VolatilityDetails() {
                 <div className="container">
                     <div className="row d-flex justify-content-between">
                         <div className="col-md-8">
-                            <h3>category</h3>
-                            <p>description</p>
+                            <h3>Volatility</h3>
+                            <p>Stocks with high price swings, offering great opportunities for short-term gains.</p>
                         </div>
 
                         <div className="col-md-3 text-end my-4">
@@ -73,56 +103,107 @@ export default function VolatilityDetails() {
                 </div>
             </div>
 
-            <div className="container mb-4">
-                <div className="table-responsive">
-                    <table className="table table-bordered">
-                        <thead>
-                            <tr>
-                                {/* {headers.map((header) => (
-                                    <th
-                                        key={header.key}
-                                        style={{ padding: "20px", whiteSpace: "nowrap", cursor: "pointer" }}
-                                        onClick={() => handleSort(header.key)}
-                                    >
-                                        {header.label}{" "}
-                                        {sortConfig.key === header.key &&
-                                            (sortConfig.direction === "ascending" ? "▲" : "▼")}
-                                    </th>
-                                ))} */}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {/* {currentItems.length > 0 ? (
-                                currentItems.map((stock, index) => (
-                                    <tr key={index}>
-                                        <td style={{ padding: '12px', cursor: "pointer" }} className="table-active">{stock.symbol}</td>
-
-                                        <td >{stock.stockName}</td>
-                                        <td>{stock.currentPrice.toFixed(2)}</td>
-                                        <td>{stock.volatility}</td>
-                                        <td>{stock.description}</td>
+            <div className="container mb-5">
+                {error && <div className="alert alert-danger">{error}</div>}
+                {loading ? (
+                    <div>Loading...</div>
+                ) : (
+                    <>
+                        <div className="table-responsive mb-0">
+                            <table className="table table-hover table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        {headers.map((header) => (
+                                            <th
+                                                key={header.key}
+                                                onClick={() => handleSort(header.key)}
+                                                style={{ padding: "20px", whiteSpace: "nowrap", cursor: "pointer" }}
+                                            >
+                                                {header.label}
+                                                {sortConfig.key === header.key ? (
+                                                    sortConfig.direction === "asc" ? (
+                                                        " ▲"
+                                                    ) : (
+                                                        " ▼"
+                                                    )
+                                                ) : (
+                                                    ""
+                                                )}
+                                            </th>
+                                        ))}
                                     </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={headers.length} className="text-center">
-                                        No data available
-                                    </td>
-                                </tr>
-                            )} */}
-                        </tbody>
-                    </table>
-                </div>
+                                </thead>
 
-                <div className="d-flex justify-content-center m-3">
-                    {/* <Pagination
-                        current={currentPage}
-                        pageSize={itemsPerPage}
-                        total={filteredData.length}
-                        onChange={handlePageChange}
-                        showSizeChanger={false}
-                    /> */}
-                </div>
+                                <tbody>
+                                    {currentItems.length > 0 ? (
+                                        currentItems.map((stock, index) => (
+                                            <tr key={index}>
+                                                <td>{stock.Symbol}</td>
+                                                <td>{stock.Name}</td>
+                                                <td className={getNumberColor(stock.Price)}>
+                                                    {stock.Price}
+                                                </td>
+                                                {/* <td className={getNumberColor(Number(stock.Change))}>
+                                                {stock.Change}
+                                            </td> */}
+                                                <td className={getNumberColor(stock["1DVolatility"])}>
+                                                    {stock["1DVolatility"]}
+                                                </td>
+                                                <td className={getNumberColor(stock["1D"])}>
+                                                    {stock["1D"]}
+                                                </td>
+                                                <td className={getNumberColor(stock["1M"])}>
+                                                    {stock["1M"]}
+                                                </td>
+                                                <td className={getNumberColor(stock["1Y"])}>
+                                                    {stock["1Y"]}
+                                                </td>
+                                                <td>
+                                                    {stock.Volume}
+                                                </td>
+                                                <td>
+                                                    {stock.MarketCap}
+                                                </td>
+                                                <td>
+                                                    {stock.SMA50}
+                                                </td>
+                                                <td>
+                                                    {stock.SMA200}
+                                                </td>
+                                                <td>
+                                                    {stock.Beta}
+                                                </td>
+                                                <td>
+                                                    {stock.DividendYieldTTM}
+                                                </td>
+                                                <td>
+                                                    {stock.RSI}
+                                                </td>
+                                                <td>{stock.Sector}</td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={16} className="text-center">
+                                                No data available
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+
+                        </div>
+                        <div className="d-flex justify-content-center m-3">
+                            <Pagination
+                                current={currentPage}
+                                pageSize={itemsPerPage}
+                                total={filteredData.length}
+                                onChange={handlePageChange}
+                                showSizeChanger={false}
+                            />
+                        </div>
+                    </>
+                )}
             </div>
         </section>
     );

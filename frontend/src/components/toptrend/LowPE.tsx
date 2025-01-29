@@ -1,168 +1,164 @@
-import React from 'react'
+import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { lowperatio } from './TopTrendSlice';
 
-export default function LowPE() {
-  return (
-    <div>LowPE</div>
-  )
+interface Stock {
+  Symbol: string;
+  Name: string;
+  Price: string;
+  Change: string;
+  Volume: string;
+  MarketCap: string;
+  Beta: number;
+  PERatio: number;
+  FreeCashFlowTTM: string;
+  ProfitMarginsTTM: string;
+  DividendPayoutRatioTTM: string;
+  RevenueGrowthTTM: string;
+  DebtToEquityRatioTTM: string;
+  PriceToBookRatioTTM: string;
+  ProfitMarginTTM: string;
+  Sector: string;
 }
 
+export default function LowPE() {
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof Stock | null;
+    direction: 'ascending' | 'descending';
+  }>({
+    key: null,
+    direction: 'ascending',
+  });
+  const [searchTerm, setSearchTerm] = useState('');
 
+  const dispatch = useDispatch();
 
+  useEffect(() => {
+    dispatch<any>(lowperatio({ page: 1, limit: 10 })).then((data: any) => {
+      setStocks(data.payload);
+    });
+  }, [dispatch]);
 
-// import { useState } from 'react';
-// import lowpe from './lowpe.json';
+  const handleSort = (key: keyof Stock) => {
+    setSortConfig((prevState) => ({
+      key,
+      direction:
+        prevState.key === key && prevState.direction === 'ascending'
+          ? 'descending'
+          : 'ascending',
+    }));
+  };
 
-// interface Stock {
-//     symbol: string;
-//     stockName: string;
-//     currentPrice: number;
-//     sector: string;
-//     "52WeekHigh": number;
-//     "52WeekLow": number;
-//     highPercentage: number;
-//     lowPercentage: number;
-//     volume: number;
-//     marketCap: number;
-//     peRatio: number;
-//     beta: number;
-//     dividendYield: number;
-// }
+  const getSortIcon = (key: keyof Stock) =>
+    sortConfig.key === key ? (sortConfig.direction === 'ascending' ? ' ▲' : ' ▼') : '';
 
-// export default function LowPE() {
+  const filteredStocks = stocks.filter((stock) =>
+    Object.values(stock).some((val) => val.toString().toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
-//     const [stocks, setStocks] = useState<Stock[]>(lowpe.stocks);
-//     const [sortConfig, setSortConfig] = useState<{ key: keyof Stock | null; direction: 'ascending' | 'descending' }>({
-//         key: null,
-//         direction: 'ascending',
-//     });
-//     const [searchTerm, setSearchTerm] = useState('');
+  const sortedStocks = [...filteredStocks].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    const aValue = a[sortConfig.key];
+    const bValue = b[sortConfig.key];
+    if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+    return 0;
+  });
 
-//     const handleSort = (key: keyof Stock) => {
-//         setSortConfig((prevState) => ({
-//             key,
-//             direction: prevState.key === key && prevState.direction === 'ascending' ? 'descending' : 'ascending',
-//         }));
-//     };
+  const columns = [
+    { key: 'Symbol', label: 'Symbol' },
+    { key: 'Name', label: 'Stock Name' },
+    { key: 'Price', label: 'Current Price' },
+    { key: 'Change', label: 'Change' },
+    { key: 'Volume', label: 'Volume' },
+    { key: 'MarketCap', label: 'Market Cap' },
+    { key: 'Beta', label: 'Beta' },
+    { key: 'PERatio', label: 'PE Ratio' },
+    { key: 'FreeCashFlowTTM', label: 'Free Cash Flow TTM' },
+    { key: 'ProfitMarginsTTM', label: 'Profit Margins TTM' },
+    { key: 'DividendPayoutRatioTTM', label: 'Dividend Payout Ratio TTM' },
+    { key: 'RevenueGrowthTTM', label: 'Revenue Growth TTM' },
+    { key: 'DebtToEquityRatioTTM', label: 'Debt To Equity Ratio TTM' },
+    { key: 'PriceToBookRatioTTM', label: 'Price To Book Ratio TTM' },
+    { key: 'ProfitMarginTTM', label: 'Profit Margin TTM' },
+    { key: 'Sector', label: 'Sector' },
+  ];
 
-//     const getSortIcon = (key: keyof Stock) =>
-//         sortConfig.key === key ? (sortConfig.direction === 'ascending' ? ' ▲' : ' ▼') : '';
+  return (
+    <section>
+      <div className="d-flex toptrend-sub-banner p-5">
+        <div className="container">
+          <div className="row d-flex justify-content-between">
+            <div className="col-md-8">
+              <h3>Low PE Stocks</h3>
+              <p>Explore stocks with low price-to-earnings ratios.</p>
+            </div>
+            <div className="col-md-3 text-end my-4">
+              <input
+                type="text"
+                placeholder="Search stocks..."
+                className="form-control"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
-//     const getHighlightColor = (currentPrice: number, value: number, isHigh: boolean) =>
-//         isHigh ? (currentPrice < value ? 'text-success' : '') : (currentPrice > value ? 'text-danger' : '');
+      <div className="container mb-5">
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table table-bordered mb-0">
+            <thead>
+              <tr>
+                {columns.map(({ key, label }) => (
+                  <th
+                    key={key}
+                    onClick={() => handleSort(key as keyof Stock)}
+                    style={{ padding: '20px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                    aria-label={`Sort by ${label}`}
+                  >
+                    {label} {getSortIcon(key as keyof Stock)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
 
-//     const getPercentageHighlight = (percentage: number) => (percentage >= 0 ? 'text-success' : 'text-danger');
+            <tbody>
+              {sortedStocks.length > 0 ? (
+                sortedStocks.map((stock, index) => (
+                  <tr key={index}>
+                    <td>{stock.Symbol}</td>
+                    <td>{stock.Name}</td>
+                    <td>{stock.Price || 'Data not available'}</td>
+                    <td>{stock.Change || 'Data not available'}</td>
+                    <td>{stock.Volume || 'Data not available'}</td>
+                    <td>{stock.MarketCap || 'Data not available'}</td>
+                    <td>{stock.Beta || 'Data not available'}</td>
+                    <td>{stock.PERatio || 'Data not available'}</td>
+                    <td>{stock.FreeCashFlowTTM || 'Data not available'}</td>
+                    <td>{stock.ProfitMarginsTTM || 'Data not available'}</td>
+                    <td>{stock.DividendPayoutRatioTTM || 'Data not available'}</td>
+                    <td>{stock.RevenueGrowthTTM || 'Data not available'}</td>
+                    <td>{stock.DebtToEquityRatioTTM || 'Data not available'}</td>
+                    <td>{stock.PriceToBookRatioTTM || 'Data not available'}</td>
+                    <td>{stock.ProfitMarginTTM || 'Data not available'}</td>
+                    <td>{stock.Sector || 'Data not available'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center' }}>
+                    No data available
+                  </td>
+                </tr>
+              )}
 
-//     const filteredStocks = stocks.filter((stock) =>
-//         Object.values(stock).some((val) => val.toString().toLowerCase().includes(searchTerm.toLowerCase()))
-//     );
-
-//     const sortedStocks = [...filteredStocks].sort((a, b) => {
-//         if (!sortConfig.key) return 0;
-//         const aValue = a[sortConfig.key];
-//         const bValue = b[sortConfig.key];
-//         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-//         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
-//         return 0;
-//     });
-
-//     const columns = [
-//         { key: 'symbol', label: 'Symbol' },
-//         { key: 'stockName', label: 'Stock Name' },
-//         { key: 'currentPrice', label: 'Current Price' },
-//         { key: 'sector', label: 'Sector' },
-//         { key: '52WeekHigh', label: '52 Week High' },
-//         { key: '52WeekLow', label: '52 Week Low' },
-//         { key: 'highPercentage', label: 'High Percentage' },
-//         { key: 'lowPercentage', label: 'Low Percentage' },
-//         { key: 'volume', label: 'Volume' },
-//         { key: 'marketCap', label: 'Market Cap' },
-//         { key: 'peRatio', label: 'PE Ratio' },
-//         { key: 'beta', label: 'Beta' },
-//         { key: 'dividendYield', label: 'Dividend Yield' },
-//     ];
-
-//     return (
-//         <section>
-//             <div className="d-flex toptrend-sub-banner p-5">
-//                 <div className="container">
-//                     <div className="row d-flex justify-content-between">
-//                         <div className="col-md-8">
-//                             <h3>{lowpe.category}</h3>
-//                             <p>{lowpe.description}</p>
-//                         </div>
-//                         <div className="col-md-3 text-end my-4">
-//                             <input
-//                                 type="text"
-//                                 placeholder="Search stocks..."
-//                                 className="form-control"
-//                                 value={searchTerm}
-//                                 onChange={(e) => setSearchTerm(e.target.value)}
-//                             />
-//                         </div>
-//                     </div>
-//                 </div>
-//             </div>
-
-
-//             <div className="container mb-5">
-//                 <div style={{ overflowX: 'auto' }}>
-//                     <table className="table table-bordered mb-0">
-//                         <thead>
-//                             <tr>
-//                                 {columns.map(({ key, label }) => (
-//                                     <th
-//                                         key={key}
-//                                         onClick={() => handleSort(key as keyof Stock)}
-//                                         style={{ padding: '20px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-//                                         aria-label={`Sort by ${label}`}
-//                                     >
-//                                         {label} {getSortIcon(key as keyof Stock)}
-//                                     </th>
-//                                 ))}
-//                             </tr>
-//                         </thead>
-
-//                         <tbody>
-//                             {sortedStocks.length === 0 ? (
-//                                 <tr>
-//                                     <td colSpan={columns.length} className="text-center">
-//                                         No data available
-//                                     </td>
-//                                 </tr>
-//                             ) : (
-//                                 sortedStocks.map((stock) => (
-//                                     <tr key={stock.symbol}>
-//                                         {columns.map(({ key }) => (
-//                                             <td
-//                                                 key={key}
-//                                                 className={
-//                                                     key === 'symbol'
-//                                                         ? 'table-active'
-//                                                         : key === 'highPercentage' || key === 'lowPercentage'
-//                                                             ? getPercentageHighlight(stock[key as keyof Stock] as number)
-//                                                             : key === '52WeekHigh'
-//                                                                 ? getHighlightColor(stock.currentPrice, stock[key as keyof Stock] as number, true)
-//                                                                 : key === '52WeekLow'
-//                                                                     ? getHighlightColor(stock.currentPrice, stock[key as keyof Stock] as number, false)
-//                                                                     : ''
-//                                                 }
-//                                             >
-//                                                 {typeof stock[key as keyof Stock] === 'number'
-//                                                     ? key === 'currentPrice'
-//                                                         ? `$${(stock[key as keyof Stock] as number).toFixed(2)}`
-//                                                         : key === 'highPercentage' || key === 'lowPercentage'
-//                                                             ? `${(stock[key as keyof Stock] as number).toFixed(2)}%`
-//                                                             : (stock[key as keyof Stock] as number).toFixed(2)
-//                                                     : stock[key as keyof Stock]}
-//                                             </td>
-//                                         ))}
-//                                     </tr>
-//                                 ))
-//                             )}
-//                         </tbody>
-//                     </table>
-//                 </div>
-//             </div>
-//         </section>
-//     );
-// }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
