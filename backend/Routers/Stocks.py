@@ -1,13 +1,18 @@
 from fastapi import APIRouter,HTTPException,Query, Depends
 from fastapi.responses import JSONResponse
-from Models.StocksModels import Symbols, StockInfo, CompanyProfile, StockPerformance
+from Models.StocksModels import Symbols, StockInfo, CompanyProfile, StockPerformance, FinancialMetrics, TechnicalIndicator
 from dotenv import load_dotenv
 import os
 import httpx
 from fastapi_sqlalchemy import db
 from typing import List, Optional
-import datetime
+from datetime import datetime, time
 import math
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+
+import pytz
 
 load_dotenv()
 router = APIRouter()
@@ -20,11 +25,14 @@ Company_Base_URL = "https://financialmodelingprep.com/api/v3/profile"
 
 Stock_Performance_URL = "https://financialmodelingprep.com/api/v3/stock-price-change"
 
+Stock_Ratio_URL = "https://financialmodelingprep.com/api/v3/ratios-ttm"
+
+RSI_Technical_URL = "https://financialmodelingprep.com/api/v3/technical_indicator/1day"
 
 @router.get("/UploadSymbols")
 async def Upload_Symbols():
     params = {
-        "apikey": os.getenv("API_KEY2")
+        "apikey": os.getenv("API_KEY4")
     }
     try:
         tickers = [
@@ -90,49 +98,109 @@ def OneDayVolatility(day_high,day_low):
 
 @router.get("/UploadStocks")
 async def Upload_Stocks():
+    print("tasked assigned")
     params = {
-        "apikey": os.getenv("API_KEY2")
+        "apikey": os.getenv("API_KEY4")
     }
+    print(os.getenv("API_KEY4"))
+
     try:
-        print(os.getenv("API_KEY2"))
         count = 0 
-        with httpx.Client() as r:
-            symbol_query = db.session.query(Symbols).all()
-            for symbol in symbol_query:
-                count+=1
-                if count >30:
-                    break
-                response = r.get(f"{Stock_Base_URL}/{symbol.Csymbol}", params = params)
-                print(response.headers)
-                res = response.json()
-                for data in res:
-                    # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data["symbol"]).first()
-                    SctockDetails = StockInfo(  symbol = data["symbol"],
-                                                name = data["name"],
-                                                price = data["price"],
-                                                changesPercentage = data["changesPercentage"],
-                                                change = data["change"],
-                                                dayLow = data["dayLow"],
-                                                dayHigh = data["dayHigh"],
-                                                yearHigh = data["yearHigh"],
-                                                yearLow = data["yearLow"],
-                                                marketCap = data["marketCap"],
-                                                priceAvg50 = data["priceAvg50"],
-                                                priceAvg200 = data["priceAvg200"],
-                                                exchange = data["exchange"],
-                                                volume = data["volume"],
-                                                avgVolume = data["avgVolume"],
-                                                open_price = data["open"] ,
-                                                previousClose = data["previousClose"],
-                                                eps  = data["eps"],
-                                                pe = data["pe"],
-                                                onedayvolatility = OneDayVolatility(data["dayHigh"],data["dayLow"]),
-                                                timestamp =  data["timestamp"]
-                                            )
-                    db.session.add(SctockDetails)
-                    db.session.commit()
-                    db.session.refresh(SctockDetails)
-        return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
+        with db():
+            with httpx.Client() as r:
+                symbol_query = db.session.query(Symbols).all()
+                for symbol in symbol_query:
+                    count+=1
+                    if count >30:
+                        break
+                    response = r.get(f"{Stock_Base_URL}/{symbol.Csymbol}", params = params)
+                    res = response.json()
+                    # print(res)
+                    for data in res:
+                        StockInfoData = db.session.query(StockInfo).filter(StockInfo.symbol == symbol.Csymbol).order_by(StockInfo.id.desc()).first()
+                        
+                        if StockInfoData:
+                            if datetime.fromtimestamp(StockInfoData.timestamp).strftime("%Y-%m-%d") != datetime.fromtimestamp(data.get('timestamp')).strftime("%Y-%m-%d"):
+
+                                # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data.get("symbol")).first()
+                                SctockDetails = StockInfo(  symbol = data.get("symbol"),
+                                                            name = data.get("name"),
+                                                            price = data.get("price"),
+                                                            changesPercentage = data.get("changesPercentage"),
+                                                            change = data.get("change"),
+                                                            dayLow = data.get("dayLow"),
+                                                            dayHigh = data.get("dayHigh"),
+                                                            yearHigh = data.get("yearHigh"),
+                                                            yearLow = data.get("yearLow"),
+                                                            marketCap = data.get("marketCap"),
+                                                            priceAvg50 = data.get("priceAvg50"),
+                                                            priceAvg200 = data.get("priceAvg200"),
+                                                            exchange = data.get("exchange"),
+                                                            volume = data.get("volume"),
+                                                            avgVolume = data.get("avgVolume"),
+                                                            open_price = data.get("open") ,
+                                                            previousClose = data.get("previousClose"),
+                                                            eps  = data.get("eps"),
+                                                            pe = data.get("pe"),
+                                                            onedayvolatility = OneDayVolatility(data.get("dayHigh"),data.get("dayLow")),
+                                                            timestamp =  data.get("timestamp")
+                                                        )
+                                db.session.add(SctockDetails)
+                                db.session.commit()
+                                db.session.refresh(SctockDetails)
+                            else:
+                                # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data.get("symbol")).first()
+                                StockInfoData.symbol = data.get("symbol")
+                                StockInfoData.name = data.get("name")
+                                StockInfoData.price = data.get("price")
+                                StockInfoData.changesPercentage = data.get("changesPercentage")
+                                StockInfoData.change = data.get("change")
+                                StockInfoData.dayLow = data.get("dayLow")
+                                StockInfoData.dayHigh = data.get("dayHigh")
+                                StockInfoData.yearHigh = data.get("yearHigh")
+                                StockInfoData.yearLow = data.get("yearLow")
+                                StockInfoData.marketCap = data.get("marketCap")
+                                StockInfoData.priceAvg50 = data.get("priceAvg50")
+                                StockInfoData.priceAvg200 = data.get("priceAvg200")
+                                StockInfoData.exchange = data.get("exchange")
+                                StockInfoData.volume = data.get("volume")
+                                StockInfoData.avgVolume = data.get("avgVolume")
+                                StockInfoData.open_price = data.get("open") 
+                                StockInfoData.previousClose = data.get("previousClose")
+                                StockInfoData.eps  = data.get("eps")
+                                StockInfoData.pe = data.get("pe")
+                                StockInfoData.onedayvolatility = OneDayVolatility(data.get("dayHigh"),data.get("dayLow"))
+                                StockInfoData.timestamp =  data.get("timestamp")
+                                db.session.commit()
+                                db.session.refresh(StockInfoData)
+                        else:
+                            print("elseblock")
+                            SctockDetails = StockInfo(  symbol = data.get("symbol"),
+                                                        name = data.get("name"),
+                                                        price = data.get("price"),
+                                                        changesPercentage = data.get("changesPercentage"),
+                                                        change = data.get("change"),
+                                                        dayLow = data.get("dayLow"),
+                                                        dayHigh = data.get("dayHigh"),
+                                                        yearHigh = data.get("yearHigh"),
+                                                        yearLow = data.get("yearLow"),
+                                                        marketCap = data.get("marketCap"),
+                                                        priceAvg50 = data.get("priceAvg50"),
+                                                        priceAvg200 = data.get("priceAvg200"),
+                                                        exchange = data.get("exchange"),
+                                                        volume = data.get("volume"),
+                                                        avgVolume = data.get("avgVolume"),
+                                                        open_price = data.get("open") ,
+                                                        previousClose = data.get("previousClose"),
+                                                        eps  = data.get("eps"),
+                                                        pe = data.get("pe"),
+                                                        onedayvolatility = OneDayVolatility(data.get("dayHigh"),data.get("dayLow")),
+                                                        timestamp =  data.get("timestamp")
+                                                    )
+                            db.session.add(SctockDetails)
+                            db.session.commit()
+                            db.session.refresh(SctockDetails)
+            return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
     
@@ -180,7 +248,7 @@ async def StocksDetails(
                         "Employeepershare" : result.eps,
                         "PERatio" : result.pe,
                         "1Day Volatility": result.onedayvolatility,
-                        "timestamp" :  datetime.datetime.fromtimestamp(result.timestamp).strftime("%Y-%m-%d %H:%M:%S")
+                        "timestamp" :  datetime.fromtimestamp(result.timestamp).strftime("%Y-%m-%d %H:%M:%S")
                     } for result in result]
     
         # Return paginated users and total count
@@ -192,7 +260,7 @@ async def StocksDetails(
 @router.get("/UploadCompanyProfiles")
 async def Upload_CompanyProfile():
     params = {
-        "apikey": os.getenv("API_KEY2")
+        "apikey": os.getenv("API_KEY4")
     }
     try:
         count = 0 
@@ -206,44 +274,44 @@ async def Upload_CompanyProfile():
                     response = r.get(f"{Company_Base_URL}/{symbol.Csymbol}", params = params)
                     res = response.json()
                     for data in res:
-                        # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data["symbol"]).first()
-                        CompanyDetails = CompanyProfile(   symbol=data["symbol"],
-                                                            price=data["price"],
-                                                            beta=data["beta"],
-                                                            volAvg=data["volAvg"],
-                                                            mktCap=data["mktCap"],
-                                                            lastDiv=data["lastDiv"],
-                                                            price_range=data["range"],
-                                                            changes=data["changes"],
-                                                            companyName=data["companyName"],
-                                                            currency=data["currency"],
-                                                            cik=data["cik"],
-                                                            isin=data["isin"],
-                                                            cusip=data["cusip"],
-                                                            exchange=data["exchange"],
-                                                            exchangeShortName=data["exchangeShortName"],
-                                                            industry=data["industry"],
-                                                            website=data["website"],
-                                                            description=data["description"],
-                                                            ceo=data["ceo"],
-                                                            sector=data["sector"],
-                                                            country=data["country"],
-                                                            fullTimeEmployees=data["fullTimeEmployees"],
-                                                            phone=data["phone"],
-                                                            address=data["address"],
-                                                            city=data["city"],
-                                                            state=data["state"],
-                                                            zip_code=data["zip"],
-                                                            dcfDiff=data["dcfDiff"],
-                                                            dcf=data["dcf"],
-                                                            image=data["image"],
-                                                            ipoDate=data["ipoDate"],
-                                                            defaultImage=data["defaultImage"],
-                                                            isEtf=data["isEtf"],
-                                                            isActivelyTrading=data["isActivelyTrading"],
-                                                            isAdr=data["isAdr"],
-                                                            isFund=data["isFund"]
-                                                    )
+                        # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data.get("symbol")).first()
+                        CompanyDetails = CompanyProfile(   symbol=data.get("symbol"),
+                                                            price=data.get("price"),
+                                                            beta=data.get("beta"),
+                                                            volAvg=data.get("volAvg"),
+                                                            mktCap=data.get("mktCap"),
+                                                            lastDiv=data.get("lastDiv"),
+                                                            price_range=data.get("range"),
+                                                            changes=data.get("changes"),
+                                                            companyName=data.get("companyName"),
+                                                            currency=data.get("currency"),
+                                                            cik=data.get("cik"),
+                                                            isin=data.get("isin"),
+                                                            cusip=data.get("cusip"),
+                                                            exchange=data.get("exchange"),
+                                                            exchangeShortName=data.get("exchangeShortName"),
+                                                            industry=data.get("industry"),
+                                                            website=data.get("website"),
+                                                            description=data.get("description"),
+                                                            ceo=data.get("ceo"),
+                                                            sector=data.get("sector"),
+                                                            country=data.get("country"),
+                                                            fullTimeEmployees=data.get("fullTimeEmployees"),
+                                                            phone=data.get("phone"),
+                                                            address=data.get("address"),
+                                                            city=data.get("city"),
+                                                            state=data.get("state"),
+                                                            zip_code=data.get("zip"),
+                                                            dcfDiff=data.get("dcfDiff"),
+                                                            dcf=data.get("dcf"),
+                                                            image=data.get("image"),
+                                                            ipoDate=data.get("ipoDate"),
+                                                            defaultImage=data.get("defaultImage"),
+                                                            isEtf=data.get("isEtf"),
+                                                            isActivelyTrading=data.get("isActivelyTrading"),
+                                                            isAdr=data.get("isAdr"),
+                                                            isFund=data.get("isFund")
+                                                        )
 
                         db.session.add(CompanyDetails)
                         db.session.commit()
@@ -323,7 +391,7 @@ async def CompanyProfile_Details(
 @router.get("/UploadStocksPerformance")
 async def Upload_StocksPerformance():
     params = {
-        "apikey": os.getenv("API_KEY2")
+        "apikey": os.getenv("API_KEY4")
     }
     try:
         count = 0 
@@ -336,20 +404,20 @@ async def Upload_StocksPerformance():
                 response = r.get(f"{Stock_Performance_URL}/{symbol.Csymbol}", params = params)
                 res = response.json()
                 for data in res:
-                    # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data["symbol"]).first()
+                    # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data.get("symbol")).first()
                     stock_performance = StockPerformance(
-                                                            symbol=data["symbol"],
-                                                            one_day=data["1D"],
-                                                            five_day=data["5D"],
-                                                            one_month=data["1M"],
-                                                            three_month=data["3M"],
-                                                            six_month=data["6M"],
-                                                            ytd=data["ytd"],
-                                                            one_year=data["1Y"],
-                                                            three_year=data["3Y"],
-                                                            five_year=data["5Y"],
-                                                            ten_year=data["10Y"],
-                                                            max_val=data["max"],
+                                                            symbol=data.get("symbol"),
+                                                            one_day=data.get("1D"),
+                                                            five_day=data.get("5D"),
+                                                            one_month=data.get("1M"),
+                                                            three_month=data.get("3M"),
+                                                            six_month=data.get("6M"),
+                                                            ytd=data.get("ytd"),
+                                                            one_year=data.get("1Y"),
+                                                            three_year=data.get("3Y"),
+                                                            five_year=data.get("5Y"),
+                                                            ten_year=data.get("10Y"),
+                                                            max_val=data.get("max"),
                                                         )
                     db.session.add(stock_performance)
                     db.session.commit()
@@ -402,3 +470,159 @@ async def Stock_Performance(
         return JSONResponse(status_code = 200, content={"total": total_count, "Compines": companies})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
+    
+@router.get("/UploadFinancialMetrics")
+async def Upload_FinancialMetrics():
+    params = {
+        "apikey": os.getenv("API_KEY4")
+    }
+    try:
+        count = 0 
+        with httpx.Client() as r:
+            symbol_query = db.session.query(Symbols).all()
+            for symbol in symbol_query:
+                count+=1
+                if count >30:
+                    break
+                response = r.get(f"{Stock_Ratio_URL}/{symbol.Csymbol}", params = params)
+                res = response.json()
+                for data in res:
+                    # symbol_id = db.session.query(Symbols).filter_by(Csymbol=data.get("symbol")).first()
+                    MetricsData = FinancialMetrics(
+                                                        symbol = symbol.Csymbol,
+                                                        dividendYielTTM =data.get("dividendYielTTM"), #--------
+                                                        dividendYielPercentageTTM =data.get("dividendYielPercentageTTM"),
+                                                        peRatioTTM =data.get("peRatioTTM"),
+                                                        pegRatioTTM =data.get("pegRatioTTM"),
+                                                        payoutRatioTTM =data.get("payoutRatioTTM") ,#----------
+                                                        currentRatioTTM =data.get("currentRatioTTM"),#----------
+                                                        quickRatioTTM =data.get("quickRatioTTM"), #----------
+                                                        cashRatioTTM =data.get("cashRatioTTM"), #-----------
+                                                        daysOfSalesOutstandingTTM =data.get("daysOfSalesOutstandingTTM"),
+                                                        daysOfInventoryOutstandingTTM =data.get("daysOfInventoryOutstandingTTM"),
+                                                        operatingCycleTTM =data.get("operatingCycleTTM"),
+                                                        daysOfPayablesOutstandingTTM =data.get("daysOfPayablesOutstandingTTM"),
+                                                        cashConversionCycleTTM =data.get("cashConversionCycleTTM"),
+                                                        grossProfitMarginTTM =data.get("grossProfitMarginTTM"),
+                                                        operatingProfitMarginTTM =data.get("operatingProfitMarginTTM"),
+                                                        pretaxProfitMarginTTM =data.get("pretaxProfitMarginTTM"),
+                                                        netProfitMarginTTM =data.get("netProfitMarginTTM"),
+                                                        effectiveTaxRateTTM =data.get("effectiveTaxRateTTM"),
+                                                        returnOnAssetsTTM =data.get("returnOnAssetsTTM"),
+                                                        returnOnEquityTTM =data.get("returnOnEquityTTM"),
+                                                        returnOnCapitalEmployedTTM =data.get("returnOnCapitalEmployedTTM"),
+                                                        netIncomePerEBTTTM =data.get("netIncomePerEBTTTM"),
+                                                        ebtPerEbitTTM =data.get("ebtPerEbitTTM"),
+                                                        ebitPerRevenueTTM =data.get("ebitPerRevenueTTM"),
+                                                        debtRatioTTM =data.get("debtRatioTTM"),
+                                                        debtEquityRatioTTM =data.get("debtEquityRatioTTM"),
+                                                        longTermDebtToCapitalizationTTM =data.get("longTermDebtToCapitalizationTTM"),
+                                                        totalDebtToCapitalizationTTM =data.get("totalDebtToCapitalizationTTM"),
+                                                        interestCoverageTTM =data.get("interestCoverageTTM"),
+                                                        cashFlowToDebtRatioTTM =data.get("cashFlowToDebtRatioTTM"),
+                                                        companyEquityMultiplierTTM =data.get("companyEquityMultiplierTTM"),
+                                                        receivablesTurnoverTTM =data.get("receivablesTurnoverTTM"),
+                                                        payablesTurnoverTTM =data.get("payablesTurnoverTTM"),
+                                                        inventoryTurnoverTTM =data.get("inventoryTurnoverTTM"),
+                                                        fixedAssetTurnoverTTM =data.get("fixedAssetTurnoverTTM"),
+                                                        assetTurnoverTTM =data.get("assetTurnoverTTM"),
+                                                        operatingCashFlowPerShareTTM =data.get("operatingCashFlowPerShareTTM"),
+                                                        freeCashFlowPerShareTTM =data.get("freeCashFlowPerShareTTM"),
+                                                        cashPerShareTTM =data.get("cashPerShareTTM"),
+                                                        operatingCashFlowSalesRatioTTM =data.get("operatingCashFlowSalesRatioTTM"),
+                                                        freeCashFlowOperatingCashFlowRatioTTM =data.get("freeCashFlowOperatingCashFlowRatioTTM"),
+                                                        cashFlowCoverageRatiosTTM =data.get("cashFlowCoverageRatiosTTM"),
+                                                        shortTermCoverageRatiosTTM =data.get("shortTermCoverageRatiosTTM"),
+                                                        capitalExpenditureCoverageRatioTTM =data.get("capitalExpenditureCoverageRatioTTM"),
+                                                        dividendPaidAndCapexCoverageRatioTTM =data.get("dividendPaidAndCapexCoverageRatioTTM"),
+                                                        priceBookValueRatioTTM =data.get("priceBookValueRatioTTM"),
+                                                        priceToBookRatioTTM =data.get("priceToBookRatioTTM"),
+                                                        priceToSalesRatioTTM =data.get("priceToSalesRatioTTM"),
+                                                        priceEarningsRatioTTM =data.get("priceEarningsRatioTTM"),
+                                                        priceToFreeCashFlowsRatioTTM =data.get("priceToFreeCashFlowsRatioTTM"),
+                                                        priceToOperatingCashFlowsRatioTTM =data.get("priceToOperatingCashFlowsRatioTTM"),
+                                                        priceCashFlowRatioTTM =data.get("priceCashFlowRatioTTM"),
+                                                        priceEarningsToGrowthRatioTTM =data.get("priceEarningsToGrowthRatioTTM"),
+                                                        priceSalesRatioTTM =data.get("priceSalesRatioTTM"),
+                                                        enterpriseValueMultipleTTM =data.get("enterpriseValueMultipleTTM"),
+                                                        priceFairValueTTM =data.get("priceFairValueTTM"),
+                                                        dividendPerShareTTM =data.get("dividendPerShareTTM")
+
+                                                        )
+                    db.session.add(MetricsData)
+                    db.session.commit()
+                    db.session.refresh(MetricsData)
+        return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
+    except Exception as e:
+        return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
+
+@router.get("/UploadTechnicalIndicator")
+async def Technical_Indicator():
+    params = {
+        "type": "rsi",
+        "period": 10,
+        "apikey": os.getenv("API_KEY4")
+    }
+    try:
+        count = 0 
+        with httpx.Client() as r:
+            symbol_query = db.session.query(Symbols).all()
+            for symbol in symbol_query:
+                count+=1
+                if count >30:
+                    break
+                response = r.get(f"{RSI_Technical_URL}/{symbol.Csymbol}", params = params)
+                res = response.json()
+                data = res[0]
+                # print(data)
+                TechnicaldData = TechnicalIndicator(
+                    symbol = symbol.Csymbol,
+                    date = data.get("date"),
+                    open_price = data.get("open"),
+                    high = data.get("high"),
+                    low = data.get("low"),
+                    close = data.get("close"),
+                    volume = data.get("volume"),
+                    rsi = data.get("rsi")
+                )
+                db.session.add(TechnicaldData)
+                db.session.commit()
+                db.session.refresh(TechnicaldData)
+
+        return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
+    except Exception as e:
+        return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
+
+# Define the function that will be scheduled
+async def my_task():
+    # Get the current time in US Eastern Time
+    eastern_timezone = pytz.timezone('US/Eastern')
+    current_time = datetime.now(eastern_timezone)
+    print("task triggered")
+    # current_date = datetime.now(eastern_timezone).date()
+    print(f"Task is running at {current_time}!")
+
+# Initialize the scheduler
+scheduler = BackgroundScheduler()
+
+
+# Function to schedule the task using CronTrigger
+# def Myscheduler():
+#     # Define the cron trigger to run every 2 hours between 9:30 AM and 4 PM
+#     trigger = CronTrigger(
+#         hour="20-23",    # Every 2 hours between 9 and 16 (9:30 AM, 11:30 AM, etc.)
+#         minute="45,46,47,48",    
+#         day_of_week="mon-fri",  # At minute 30 (9:30, 11:30, etc.)
+#         timezone="US/Eastern"
+#     )
+
+#     scheduler.add_job(
+#         Upload_Stocks,
+#         trigger=trigger,
+#         id='my_task',  # Unique ID for this job
+#         replace_existing=True  # Replace the existing job with the same ID if it exists
+#     )
+#     print("Cron job scheduled to run every 2 hours from 9:30 AM to 4 PM.")
+#     scheduler.start()
+#     print("Scheduler Started")
+

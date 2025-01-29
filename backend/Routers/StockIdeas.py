@@ -20,61 +20,65 @@ def format_large_number(value):
 
 def RoundTheValue(val):
     return round(val,2)
+
 @StockIdeaRouter.get("/stock/volatility")
 async def Volatility(
     Search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(10, le=100)
     ):
-    skip = (page - 1) * limit
-    query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.onedayvolatility,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
-                            CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, TechnicalIndicator.rsi,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+    try:
+        skip = (page - 1) * limit
+        query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.onedayvolatility,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
+                                CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, TechnicalIndicator.rsi,
+                                StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM).\
+                                join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                                join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                                join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                                join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                                join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
-    if Search:
-        query = query.filter(
-            or_(
-                Symbols.Csymbol.ilike(f"%{Search}%"),
-                Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
-                CompanyProfile.sector.ilike(f"%{Search}%")  
+        if Search:
+            query = query.filter(
+                or_(
+                    Symbols.Csymbol.ilike(f"%{Search}%"),
+                    Symbols.Cname.ilike(f"%{Search}%"),
+                    StockInfo.onedayvolatility.ilike(f"%{Search}%"),
+                    StockInfo.price.ilike(f"%{Search}%"),
+                    StockInfo.changesPercentage.ilike(f"%{Search}%"),
+                    StockInfo.volume.ilike(f"%{Search}%"),
+                    StockInfo.marketCap.ilike(f"%{Search}%"),
+                    CompanyProfile.beta.ilike(f"%{Search}%"),
+                    CompanyProfile.sector.ilike(f"%{Search}%")  
 
+                )
             )
-        )
-    
-    results = query.offset(skip).limit(limit).all()
+        
+        results = query.offset(skip).limit(limit).all()
 
-    result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
-                "RSI": result.rsi, #----------------------------------------pending
-                "Sector": result.sector
-              } 
-              for result in results]
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
+                    "RSI": result.rsi, #----------------------------------------pending
+                    "Sector": result.sector
+                } 
+                for result in results]
 
-    return JSONResponse(result)
+        return JSONResponse(result)
+    except Exception as e:
+        return JSONResponse(e.args)
 
 
 
@@ -972,7 +976,6 @@ async def HighDividendYield(
 async def SearchSymbols(symbol: str):
 
     query = db.session.query(Symbols.Csymbol,Symbols.Cname).order_by(Symbols.Csymbol.asc())
-    
 
     if symbol:
         query = query.filter(
@@ -980,7 +983,6 @@ async def SearchSymbols(symbol: str):
         )
 
     results = query.all()
-
     if not results:
         return JSONResponse({"message": "Symbol Not Found!"})
     
@@ -990,14 +992,12 @@ async def SearchSymbols(symbol: str):
                 
               } 
               for result in results]
-
     return JSONResponse(result)
 
 @StockIdeaRouter.get("/stock/graph")
 async def GraphData(symbol: str):
     
     query = db.session.query(StockPerformance).filter(StockPerformance.symbol == symbol).order_by(StockPerformance.id.desc()).all()
-
 
     if not query:
         return JSONResponse({"message": "Data Not Found!"})
