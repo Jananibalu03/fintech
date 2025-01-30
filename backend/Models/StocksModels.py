@@ -1,14 +1,16 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Text, Float, BigInteger, Date, Boolean
+from sqlalchemy import Column, Integer, String, Text, Float, BigInteger, Date, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
 class Symbols(Base):
     __tablename__ = "symbol"
     id = Column(Integer, primary_key=True, index=True)
-    Csymbol = Column(String(150))
+    Csymbol = Column(String(150), unique=True, nullable=False)
     Cname = Column(String(255))
     exchange = Column(String(150))
+
 
 class StockInfo(Base):
     __tablename__ = "stockinfo"
@@ -34,7 +36,7 @@ class StockInfo(Base):
     eps = Column(Float)
     pe = Column(Float)
     onedayvolatility = Column(String(100))
-    timestamp = Column(BigInteger)
+    timestamp = Column(Date)
 
 class CompanyProfile(Base):
     __tablename__ = "companyprofile"
@@ -171,8 +173,45 @@ class TechnicalIndicator(Base):
     volume = Column(BigInteger)
     rsi = Column(Float)
 
-class SoData(Base):
-    __tablename__ = "newtable"
+class FinancialGrowth(Base):
+    __tablename__ = "financialgrowth"
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(20))
-    address = Column(Text)
+    symbol = Column(String(20))
+    date = Column(Date)
+    calendarYear = Column(String(10))
+    period = Column(String(10))
+    revenueGrowth = Column(Float)
+    grossProfitGrowth = Column(Float)
+    ebitgrowth = Column(Float)
+    operatingIncomeGrowth = Column(Float)
+    netIncomeGrowth = Column(Float)
+    epsgrowth = Column(Float)
+    epsdilutedGrowth = Column(Float)
+    weightedAverageSharesGrowth = Column(Float)
+    weightedAverageSharesDilutedGrowth = Column(Float)
+    dividendsperShareGrowth = Column(Float)
+    operatingCashFlowGrowth = Column(Float)
+    freeCashFlowGrowth = Column(Float)
+    tenYRevenueGrowthPerShare = Column(Float)
+    fiveYRevenueGrowthPerShare = Column(Float)
+    threeYRevenueGrowthPerShare = Column(Float)
+    tenYOperatingCFGrowthPerShare = Column(Float)
+    fiveYOperatingCFGrowthPerShare = Column(Float)
+    threeYOperatingCFGrowthPerShare = Column(Float)
+    tenYNetIncomeGrowthPerShare = Column(Float)
+    fiveYNetIncomeGrowthPerShare = Column(Float)
+    threeYNetIncomeGrowthPerShare = Column(Float)
+    tenYShareholdersEquityGrowthPerShare = Column(Float)
+    fiveYShareholdersEquityGrowthPerShare = Column(Float)
+    threeYShareholdersEquityGrowthPerShare = Column(Float)
+    tenYDividendperShareGrowthPerShare = Column(Float)
+    fiveYDividendperShareGrowthPerShare = Column(Float)
+    threeYDividendperShareGrowthPerShare = Column(Float)
+    receivablesGrowth = Column(Float)
+    inventoryGrowth = Column(Float)
+    assetGrowth = Column(Float)
+    bookValueperShareGrowth = Column(Float)
+    debtGrowth = Column(Float)
+    rdexpenseGrowth = Column(Float)
+    sgaexpensesGrowth = Column(Float)

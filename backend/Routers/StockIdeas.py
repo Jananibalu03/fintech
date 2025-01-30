@@ -1,10 +1,16 @@
 from fastapi import APIRouter,HTTPException,Query
-from Models.StocksModels import Symbols, StockInfo, StockPerformance, CompanyProfile, FinancialMetrics, TechnicalIndicator
+from Models.StocksModels import Symbols, StockInfo, StockPerformance, CompanyProfile, FinancialMetrics, TechnicalIndicator, FinancialGrowth
 from fastapi_sqlalchemy import db
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 from sqlalchemy import or_, and_
-
+import pytz
+from datetime import datetime, timedelta
+import httpx
+import os
+import pandas as pd
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql import func
 
 StockIdeaRouter = APIRouter()
 
@@ -29,6 +35,20 @@ async def Volatility(
     ):
     try:
         skip = (page - 1) * limit
+
+    #     latest_stockinfo = db.session.query(
+    #         StockInfo.symbol,
+    #         func.max(StockInfo.id).label("latest_id")  # Get latest ID instead of timestamp
+    #     ).group_by(StockInfo.symbol).subquery()
+    #  join(
+    #                                 latest_stockinfo, Symbols.Csymbol == latest_stockinfo.c.symbol
+    #                             ).join(
+    #                                 StockInfo, and_(
+    #                                     Symbols.Csymbol == StockInfo.symbol,
+    #                                     StockInfo.id == latest_stockinfo.c.latest_id  # Use latest ID instead of timestamp
+    #                                 )
+    #                             ).\
+
         query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.onedayvolatility,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                                 CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, TechnicalIndicator.rsi,
                                 StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM).\
@@ -70,11 +90,17 @@ async def Volatility(
                     "SMA50": result.priceAvg50,
                     "SMA200": result.priceAvg200,
                     "Beta":result.beta,
-                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
-                    "RSI": result.rsi, #----------------------------------------pending
+                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "RSI": result.rsi,
                     "Sector": result.sector
                 } 
                 for result in results]
+
+        # Convert to DataFrame
+        df = pd.DataFrame(result)
+
+        # Save to CSV
+        df.to_csv('stock_data.csv', index=False)
 
         return JSONResponse(result)
     except Exception as e:
@@ -89,6 +115,8 @@ async def YearHigh(
     limit: int = Query(10, le=100)
     ):
     skip = (page - 1) * limit
+
+    
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM, TechnicalIndicator.rsi).\
@@ -131,8 +159,8 @@ async def YearHigh(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": result.rsi,#----------------------------------------------------pending
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
+                "RSI": result.rsi,
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
                 "Sector": result.sector
               } 
               for result in results]
@@ -188,8 +216,8 @@ async def YearLow(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": result.rsi,#----------------------------------------------------pending
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #----------------------------------------pending
+                "RSI": result.rsi,
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
                 "Sector": result.sector
               } 
               for result in results]
@@ -243,12 +271,10 @@ async def UnderTen_Dollar(
                 "1Y": result.one_year,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
-                # "52WeeksHigh": result.yearHigh,
-                # "52WeeksLow": result.yearLow,
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": result.rsi,#----------------------------------------------------pending
+                "RSI": result.rsi,
                 "PERatio": result.pe,
                 "EPS": result.eps,
                 "Sector": result.sector
@@ -303,12 +329,10 @@ async def AboveTen_Dollar(
                 "1Y": result.one_year,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
-                # "52WeeksHigh": result.yearHigh,
-                # "52WeeksLow": result.yearLow,
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": result.rsi,#----------------------------------------------------pending
+                "RSI": result.rsi,
                 "PERatio": result.pe,
                 "EPS": result.eps,
                 "Sector": result.sector
@@ -368,7 +392,7 @@ async def NegativeBeta(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": result.rsi,#----------------------------------------------------pending
+                "RSI": result.rsi,
                 "Sector": result.sector
               } 
               for result in results]
@@ -425,7 +449,7 @@ async def LowBeta(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": result.rsi,#----------------------------------------------------pending
+                "RSI": result.rsi,
                 "Sector": result.sector
               } 
               for result in results]
@@ -443,7 +467,7 @@ async def HighRisk_Reward(
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.priceBookValueRatioTTM,FinancialMetrics.debtEquityRatioTTM,\
-                            FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi).\
+                            FinancialMetrics.dividendYielTTM,FinancialMetrics.priceEarningsRatioTTM,TechnicalIndicator.rsi).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
@@ -496,13 +520,13 @@ async def HighRisk_Reward(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "RSI": result.rsi,#----------------------------------------------------pending
+                "RSI": result.rsi,
                 "PERatio": result.pe,
-                "PBRatioTTM": result.priceBookValueRatioTTM, #----------------pending
-                "EarningGrowthTTM": "pending", #-----------------------pending
-                "DebttoEquityTTM": result.debtEquityRatioTTM, #--------------------------pending
-                "RisktoRewardRatioTTM": "pending", #-------------------------pending
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), #--------------------------pending
+                "PBRatioTTM": result.priceBookValueRatioTTM, 
+                "EarningGrowthTTM": result.priceEarningsRatioTTM, 
+                "DebttoEquityTTM": result.debtEquityRatioTTM, 
+                "RisktoRewardRatioTTM": "pending", 
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
                 "Sector": result.sector
               } 
               for result in results]
@@ -520,10 +544,11 @@ async def DebtFree_Stocks(
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.currentRatioTTM,FinancialMetrics.quickRatioTTM,FinancialMetrics.freeCashFlowPerShareTTM,
-                            FinancialMetrics.payoutRatioTTM).\
+                            FinancialMetrics.payoutRatioTTM,FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -555,18 +580,14 @@ async def DebtFree_Stocks(
                 "1DVolatility": result.onedayvolatility,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
-                # "52WeeksHigh": result.yearHigh,
-                # "52WeeksLow": result.yearLow,
-                # "SMA50": result.priceAvg50,
-                # "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "PERatio": result.pe,
-                "CurrentRatioTTM": result.currentRatioTTM, #------------------pending
+                "CurrentRatioTTM": result.currentRatioTTM, 
                 "QuickRatioTTM": result.quickRatioTTM,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": "pending",
+                "ProfitMarginsTTM": result.netProfitMarginTTM,
                 "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": "pending",
+                "RevenueGrowthTTM": result.revenueGrowth,
                 "Sector": result.sector
               } 
               for result in results]
@@ -583,10 +604,12 @@ async def Dividend(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,
+                            FinancialMetrics.netProfitMarginTTM,FinancialMetrics.dividendYielTTM,FinancialGrowth.revenueGrowth).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -618,18 +641,14 @@ async def Dividend(
                 "1DVolatility": result.onedayvolatility,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
-                # "52WeeksHigh": result.yearHigh,
-                # "52WeeksLow": result.yearLow,
-                # "SMA50": result.priceAvg50,
-                # "SMA200": result.priceAvg200,
-                "DividendYieldTTM": "Pending",
+                "DividendYieldTTM": result.dividendYielTTM,
                 "EPS": result.eps,
                 "Beta":result.beta,
                 "PERatio": result.pe,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": "pending",
+                "ProfitMarginsTTM": result.netProfitMarginTTM,
                 "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": "pending",
+                "RevenueGrowthTTM": result.revenueGrowth,
                 "Sector": result.sector
               } 
               for result in results]
@@ -647,10 +666,12 @@ async def LowPERatio(
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,
-                            FinancialMetrics.payoutRatioTTM,FinancialMetrics.debtEquityRatioTTM,FinancialMetrics.priceToBookRatioTTM).\
+                            FinancialMetrics.payoutRatioTTM,FinancialMetrics.debtEquityRatioTTM,FinancialMetrics.priceToBookRatioTTM,
+                            FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -679,22 +700,17 @@ async def LowPERatio(
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
                 "Change": f"{result.changesPercentage}%",
-                # "1DVolatility": result.onedayvolatility,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
-                # "52WeeksHigh": result.yearHigh,
-                # "52WeeksLow": result.yearLow,
-                # "SMA50": result.priceAvg50,
-                # "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "PERatio": result.pe,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": "pending",
+                "ProfitMarginsTTM":  result.netProfitMarginTTM,
                 "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": "pending",
+                "RevenueGrowthTTM": result.revenueGrowth,
                 "DebtToEquityRatioTTM": result.debtEquityRatioTTM,
                 "PriceToBookRatioTTM": result.priceToBookRatioTTM,
-                "ProfitMarginTTM": "pending",
+                # "ProfitMarginTTM": result.netProfitMarginTTM,
                 "Sector": result.sector
               } 
               for result in results]
@@ -711,10 +727,13 @@ async def TodayTopGain(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,
+                            TechnicalIndicator.rsi, FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -743,7 +762,6 @@ async def TodayTopGain(
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
                 "Change": f"{result.changesPercentage}%",
-                # "1DVolatility": result.onedayvolatility,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
                 "DayHigh": result.dayHigh,
@@ -754,11 +772,11 @@ async def TodayTopGain(
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "PERatio": result.pe,
-                "RSI": "pending",
+                "RSI": result.rsi,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": "pending",
+                "ProfitMarginsTTM": result.netProfitMarginTTM,
                 "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": "pending",
+                "RevenueGrowthTTM": result.revenueGrowth,
                 "Sector": result.sector
               } 
               for result in results]
@@ -775,11 +793,13 @@ async def TodayTopLoss(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,TechnicalIndicator.rsi).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,TechnicalIndicator.rsi,
+                            FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -808,7 +828,6 @@ async def TodayTopLoss(
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
                 "Change": f"{result.changesPercentage}%",
-                # "1DVolatility": result.onedayvolatility,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
                 "DayHigh": result.dayHigh,
@@ -821,9 +840,9 @@ async def TodayTopLoss(
                 "PERatio": result.pe,
                 "RSI": result.rsi,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": "pending",
+                "ProfitMarginsTTM": result.netProfitMarginTTM,
                 "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": "pending",
+                "RevenueGrowthTTM": result.revenueGrowth,
                 "Sector": result.sector
               } 
               for result in results]
@@ -840,11 +859,13 @@ async def TopPerformance(
     skip = (page - 1) * limit
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
-                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi).\
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi,
+                            FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -873,7 +894,6 @@ async def TopPerformance(
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
                 "Change": f"{result.changesPercentage}%",
-                # "1DVolatility": result.onedayvolatility,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
                 "DayHigh": result.dayHigh,
@@ -888,12 +908,11 @@ async def TopPerformance(
                 "Beta":result.beta,
                 "PERatio": result.pe,
                 "EPS": result.eps,
-
                 "RSI": result.rsi,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": "pending",
+                "ProfitMarginsTTM": result.netProfitMarginTTM,
                 "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
-                "RevenueGrowthTTM": "pending",
+                "RevenueGrowthTTM": result.revenueGrowth,
                 "Sector": result.sector
               } 
               for result in results]
@@ -912,10 +931,11 @@ async def HighDividendYield(
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.payoutRatioTTM,FinancialMetrics.dividendYielTTM,FinancialMetrics.dividendPerShareTTM,
-                            FinancialMetrics.freeCashFlowPerShareTTM).\
+                            FinancialMetrics.freeCashFlowPerShareTTM,FinancialGrowth.revenueGrowth,FinancialGrowth.netIncomeGrowth).\
                             join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
                             join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
@@ -944,26 +964,18 @@ async def HighDividendYield(
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
                 "Change": f"{result.changesPercentage}%",
-                # "1DVolatility": result.onedayvolatility,
                 "Volume": format_large_number(result.volume),
                 "MarketCap": format_large_number(result.marketCap),
-                # "DayHigh": result.dayHigh,
-                # "DayLow": result.dayLow,
-                # "1D": result.one_day,
-                # "1M": result.one_month,
-                # "1Y": result.one_year,
                 "52WeeksHigh": result.yearHigh,
                 "52WeeksLow": result.yearLow,
-                # "SMA50": result.priceAvg50,
-                # "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "PERatio": result.pe,
                 "EPS": result.eps,      
                 "PayoutRatioTTM": result.payoutRatioTTM,
                 "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
                 "DividendPerShareTTM": result.dividendPerShareTTM,
-                "RevenueGrowthTTM": "pending",
-                "NetIncomeGrowth": "pending",
+                "RevenueGrowthTTM": result.revenueGrowth,
+                "NetIncomeGrowth": result.netIncomeGrowth,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "Sector": result.sector
               } 
@@ -995,30 +1007,542 @@ async def SearchSymbols(symbol: str):
     return JSONResponse(result)
 
 @StockIdeaRouter.get("/stock/graph")
-async def GraphData(symbol: str):
+async def GraphData(symbol: str,range_type: str):
     
-    query = db.session.query(StockPerformance).filter(StockPerformance.symbol == symbol).order_by(StockPerformance.id.desc()).all()
+    eastern = pytz.timezone('US/Eastern')
+    today = datetime.now(eastern).date()  
+    
+    if range_type == "oneday":
+        today = today - timedelta(days=1)
+        params ={
+            "from": today,
+            "to": today,
+            "apikey": os.getenv("API_KEY")
+        }
+        URL = f"https://financialmodelingprep.com/api/v3/historical-chart/5min/{symbol}"
+        with httpx.Client() as r:
+            response = r.get(URL, params = params )
+            query = db.session.query(Symbols.Csymbol,
+                                    Symbols.Cname,
+                                    StockInfo.price,
+                                    StockInfo.changesPercentage,
+                                    StockInfo.dayLow,
+                                    StockInfo.dayHigh,
+                                    StockInfo.yearHigh,
+                                    StockInfo.yearLow,
+                                    StockInfo.marketCap,
+                                    StockInfo.priceAvg50,
+                                    StockInfo.priceAvg200,
+                                    StockInfo.exchange,
+                                    StockInfo.volume,
+                                    StockInfo.avgVolume,
+                                    StockInfo.open_price,
+                                    StockInfo.previousClose,
+                                    StockInfo.eps,
+                                    StockInfo.pe,
+                                    StockInfo.onedayvolatility,
+                                    CompanyProfile.sector,
+                                    CompanyProfile.description,
+                                    CompanyProfile.beta,
+                                    StockPerformance.one_day,
+                                    StockPerformance.five_day,
+                                    StockPerformance.one_month,
+                                    StockPerformance.three_month,
+                                    StockPerformance.six_month,
+                                    StockPerformance.ytd,
+                                    StockPerformance.one_year,
+                                    FinancialMetrics.dividendYielTTM,
+                                    FinancialMetrics.payoutRatioTTM,
+                                    FinancialMetrics.currentRatioTTM,
+                                    FinancialMetrics.quickRatioTTM,
+                                    FinancialMetrics.debtRatioTTM,
+                                    FinancialMetrics.debtEquityRatioTTM,
+                                    FinancialMetrics.freeCashFlowPerShareTTM,
+                                    FinancialMetrics.priceToBookRatioTTM,
+                                    FinancialMetrics.netProfitMarginTTM,
+                                    FinancialMetrics.priceEarningsRatioTTM,
+                                    FinancialGrowth.revenueGrowth,
+                                    FinancialGrowth.netIncomeGrowth,
+                                    FinancialGrowth.revenueGrowth,
+                                    TechnicalIndicator.rsi                                    
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
-    if not query:
-        return JSONResponse({"message": "Data Not Found!"})
+            result = [{
+                        "Symbol": data.Csymbol,
+                        "Name": data.Cname,
+                        "Price": f"{round(data.price, 2)} USD",
+                        "ChangePercentage": f"{data.changesPercentage}%",
+                        "DayLow": data.dayLow,
+                        "DayHigh": data.dayHigh,
+                        "YearHigh": data.yearHigh,
+                        "YearLow": data.yearLow,
+                        "MarketCap": data.marketCap,
+                        "SMA50": data.priceAvg50,
+                        "SMA200": data.priceAvg200,
+                        "Exchange": data.exchange,
+                        "Volume": data.volume,
+                        "AvgVolume": data.avgVolume,
+                        "OpenPrice": data.open_price,
+                        "PreviousClose": data.previousClose,
+                        "EPS": data.eps,
+                        "PE": data.pe,
+                        "OneDayVolatility": data.onedayvolatility,
+                        "Sector": data.sector,
+                        "Description": data.description,
+                        "Beta": data.beta,
+                        "1D": data.one_day,
+                        "5D": data.five_day,
+                        "1M": data.one_month,
+                        "3M": data.three_month,
+                        "6M": data.six_month,
+                        "YTD": data.ytd,
+                        "1Y": data.one_year,
+                        "DividendYieldTTM": data.dividendYielTTM,
+                        "PayoutRatioTTM": data.payoutRatioTTM,
+                        "CurrentRatioTTM": data.currentRatioTTM,
+                        "QuickRatioTTM": data.quickRatioTTM,
+                        "DebtRatioTTM": data.debtRatioTTM,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
+                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
+                        "NetIncomeGrowth": data.netIncomeGrowth,
+                        "revenueGrowth": data.revenueGrowth,
+                        "RSI": data.rsi
+                    } for data in query]
+        return JSONResponse({"graph_data": response.json(),"full_data":result})
     
-    data = [{  
-                "symbol": result.symbol,
-                "one_day": result.one_day,
-                "five_day": result.five_day,
-                "one_month": result.one_month,
-                "three_month": result.three_month,
-                "six_month": result.six_month,
-                "ytd": result.ytd,
-                "one_year": result.one_year,
-                "three_year": result.three_year,
-                "five_year": result.five_year,
-                "ten_year": result.ten_year,
-                "max_val": result.max_val,
-                        
-            } for result in query]
+    elif range_type == "oneweek":
+        one_weeks = today - timedelta(days=7)
+        params ={
+            "from": one_weeks,
+            "to": today,
+            "apikey": os.getenv("API_KEY")
+        }
+        URL = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}"
+        with httpx.Client() as r:
+            response = r.get(URL, params = params )
+            query = db.session.query(Symbols.Csymbol,
+                                    Symbols.Cname,
+                                    StockInfo.price,
+                                    StockInfo.changesPercentage,
+                                    StockInfo.dayLow,
+                                    StockInfo.dayHigh,
+                                    StockInfo.yearHigh,
+                                    StockInfo.yearLow,
+                                    StockInfo.marketCap,
+                                    StockInfo.priceAvg50,
+                                    StockInfo.priceAvg200,
+                                    StockInfo.exchange,
+                                    StockInfo.volume,
+                                    StockInfo.avgVolume,
+                                    StockInfo.open_price,
+                                    StockInfo.previousClose,
+                                    StockInfo.eps,
+                                    StockInfo.pe,
+                                    StockInfo.onedayvolatility,
+                                    CompanyProfile.sector,
+                                    CompanyProfile.description,
+                                    CompanyProfile.beta,
+                                    StockPerformance.one_day,
+                                    StockPerformance.five_day,
+                                    StockPerformance.one_month,
+                                    StockPerformance.three_month,
+                                    StockPerformance.six_month,
+                                    StockPerformance.ytd,
+                                    StockPerformance.one_year,
+                                    FinancialMetrics.dividendYielTTM,
+                                    FinancialMetrics.payoutRatioTTM,
+                                    FinancialMetrics.currentRatioTTM,
+                                    FinancialMetrics.quickRatioTTM,
+                                    FinancialMetrics.debtRatioTTM,
+                                    FinancialMetrics.debtEquityRatioTTM,
+                                    FinancialMetrics.freeCashFlowPerShareTTM,
+                                    FinancialMetrics.priceToBookRatioTTM,
+                                    FinancialMetrics.netProfitMarginTTM,
+                                    FinancialMetrics.priceEarningsRatioTTM,
+                                    FinancialGrowth.revenueGrowth,
+                                    FinancialGrowth.netIncomeGrowth,
+                                    FinancialGrowth.revenueGrowth,
+                                    TechnicalIndicator.rsi                                    
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
+
+            result = [{
+                        "Symbol": data.Csymbol,
+                        "Name": data.Cname,
+                        "Price": f"{round(data.price, 2)} USD",
+                        "ChangePercentage": f"{data.changesPercentage}%",
+                        "DayLow": data.dayLow,
+                        "DayHigh": data.dayHigh,
+                        "YearHigh": data.yearHigh,
+                        "YearLow": data.yearLow,
+                        "MarketCap": data.marketCap,
+                        "SMA50": data.priceAvg50,
+                        "SMA200": data.priceAvg200,
+                        "Exchange": data.exchange,
+                        "Volume": data.volume,
+                        "AvgVolume": data.avgVolume,
+                        "OpenPrice": data.open_price,
+                        "PreviousClose": data.previousClose,
+                        "EPS": data.eps,
+                        "PE": data.pe,
+                        "OneDayVolatility": data.onedayvolatility,
+                        "Sector": data.sector,
+                        "Description": data.description,
+                        "Beta": data.beta,
+                        "1D": data.one_day,
+                        "5D": data.five_day,
+                        "1M": data.one_month,
+                        "3M": data.three_month,
+                        "6M": data.six_month,
+                        "YTD": data.ytd,
+                        "1Y": data.one_year,
+                        "DividendYieldTTM": data.dividendYielTTM,
+                        "PayoutRatioTTM": data.payoutRatioTTM,
+                        "CurrentRatioTTM": data.currentRatioTTM,
+                        "QuickRatioTTM": data.quickRatioTTM,
+                        "DebtRatioTTM": data.debtRatioTTM,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
+                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
+                        "NetIncomeGrowth": data.netIncomeGrowth,
+                        "revenueGrowth": data.revenueGrowth,
+                        "RSI": data.rsi
+                    } for data in query]
+        return JSONResponse({"graph_data": response.json(),"full_data":result})
     
-    return JSONResponse(data)
+    elif range_type == "onemonth":
+        one_month = today - timedelta(days=30)
+        params ={
+            "from": one_month,
+            "to": today,
+            "apikey": os.getenv("API_KEY")
+        }
+        URL = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}"
+        with httpx.Client() as r:
+            response = r.get(URL, params = params )
+            query = db.session.query(Symbols.Csymbol,
+                                    Symbols.Cname,
+                                    StockInfo.price,
+                                    StockInfo.changesPercentage,
+                                    StockInfo.dayLow,
+                                    StockInfo.dayHigh,
+                                    StockInfo.yearHigh,
+                                    StockInfo.yearLow,
+                                    StockInfo.marketCap,
+                                    StockInfo.priceAvg50,
+                                    StockInfo.priceAvg200,
+                                    StockInfo.exchange,
+                                    StockInfo.volume,
+                                    StockInfo.avgVolume,
+                                    StockInfo.open_price,
+                                    StockInfo.previousClose,
+                                    StockInfo.eps,
+                                    StockInfo.pe,
+                                    StockInfo.onedayvolatility,
+                                    CompanyProfile.sector,
+                                    CompanyProfile.description,
+                                    CompanyProfile.beta,
+                                    StockPerformance.one_day,
+                                    StockPerformance.five_day,
+                                    StockPerformance.one_month,
+                                    StockPerformance.three_month,
+                                    StockPerformance.six_month,
+                                    StockPerformance.ytd,
+                                    StockPerformance.one_year,
+                                    FinancialMetrics.dividendYielTTM,
+                                    FinancialMetrics.payoutRatioTTM,
+                                    FinancialMetrics.currentRatioTTM,
+                                    FinancialMetrics.quickRatioTTM,
+                                    FinancialMetrics.debtRatioTTM,
+                                    FinancialMetrics.debtEquityRatioTTM,
+                                    FinancialMetrics.freeCashFlowPerShareTTM,
+                                    FinancialMetrics.priceToBookRatioTTM,
+                                    FinancialMetrics.netProfitMarginTTM,
+                                    FinancialMetrics.priceEarningsRatioTTM,
+                                    FinancialGrowth.revenueGrowth,
+                                    FinancialGrowth.netIncomeGrowth,
+                                    FinancialGrowth.revenueGrowth,
+                                    TechnicalIndicator.rsi                                    
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
+
+            result = [{
+                        "Symbol": data.Csymbol,
+                        "Name": data.Cname,
+                        "Price": f"{round(data.price, 2)} USD",
+                        "ChangePercentage": f"{data.changesPercentage}%",
+                        "DayLow": data.dayLow,
+                        "DayHigh": data.dayHigh,
+                        "YearHigh": data.yearHigh,
+                        "YearLow": data.yearLow,
+                        "MarketCap": data.marketCap,
+                        "SMA50": data.priceAvg50,
+                        "SMA200": data.priceAvg200,
+                        "Exchange": data.exchange,
+                        "Volume": data.volume,
+                        "AvgVolume": data.avgVolume,
+                        "OpenPrice": data.open_price,
+                        "PreviousClose": data.previousClose,
+                        "EPS": data.eps,
+                        "PE": data.pe,
+                        "OneDayVolatility": data.onedayvolatility,
+                        "Sector": data.sector,
+                        "Description": data.description,
+                        "Beta": data.beta,
+                        "1D": data.one_day,
+                        "5D": data.five_day,
+                        "1M": data.one_month,
+                        "3M": data.three_month,
+                        "6M": data.six_month,
+                        "YTD": data.ytd,
+                        "1Y": data.one_year,
+                        "DividendYieldTTM": data.dividendYielTTM,
+                        "PayoutRatioTTM": data.payoutRatioTTM,
+                        "CurrentRatioTTM": data.currentRatioTTM,
+                        "QuickRatioTTM": data.quickRatioTTM,
+                        "DebtRatioTTM": data.debtRatioTTM,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
+                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
+                        "NetIncomeGrowth": data.netIncomeGrowth,
+                        "revenueGrowth": data.revenueGrowth,
+                        "RSI": data.rsi
+                    } for data in query]
+        return JSONResponse({"graph_data": response.json(),"full_data":result})
+       
+    elif range_type == "oneyear":
+        one_year = today - timedelta(days=365)
+        params ={
+            "from": one_year,
+            "to": today,
+            "apikey": os.getenv("API_KEY")
+        }
+        URL = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}"
+        with httpx.Client() as r:
+            response = r.get(URL, params = params )
+            query = db.session.query(Symbols.Csymbol,
+                                    Symbols.Cname,
+                                    StockInfo.price,
+                                    StockInfo.changesPercentage,
+                                    StockInfo.dayLow,
+                                    StockInfo.dayHigh,
+                                    StockInfo.yearHigh,
+                                    StockInfo.yearLow,
+                                    StockInfo.marketCap,
+                                    StockInfo.priceAvg50,
+                                    StockInfo.priceAvg200,
+                                    StockInfo.exchange,
+                                    StockInfo.volume,
+                                    StockInfo.avgVolume,
+                                    StockInfo.open_price,
+                                    StockInfo.previousClose,
+                                    StockInfo.eps,
+                                    StockInfo.pe,
+                                    StockInfo.onedayvolatility,
+                                    CompanyProfile.sector,
+                                    CompanyProfile.description,
+                                    CompanyProfile.beta,
+                                    StockPerformance.one_day,
+                                    StockPerformance.five_day,
+                                    StockPerformance.one_month,
+                                    StockPerformance.three_month,
+                                    StockPerformance.six_month,
+                                    StockPerformance.ytd,
+                                    StockPerformance.one_year,
+                                    FinancialMetrics.dividendYielTTM,
+                                    FinancialMetrics.payoutRatioTTM,
+                                    FinancialMetrics.currentRatioTTM,
+                                    FinancialMetrics.quickRatioTTM,
+                                    FinancialMetrics.debtRatioTTM,
+                                    FinancialMetrics.debtEquityRatioTTM,
+                                    FinancialMetrics.freeCashFlowPerShareTTM,
+                                    FinancialMetrics.priceToBookRatioTTM,
+                                    FinancialMetrics.netProfitMarginTTM,
+                                    FinancialMetrics.priceEarningsRatioTTM,
+                                    FinancialGrowth.revenueGrowth,
+                                    FinancialGrowth.netIncomeGrowth,
+                                    FinancialGrowth.revenueGrowth,
+                                    TechnicalIndicator.rsi                                    
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
+
+            result = [{
+                        "Symbol": data.Csymbol,
+                        "Name": data.Cname,
+                        "Price": f"{round(data.price, 2)} USD",
+                        "ChangePercentage": f"{data.changesPercentage}%",
+                        "DayLow": data.dayLow,
+                        "DayHigh": data.dayHigh,
+                        "YearHigh": data.yearHigh,
+                        "YearLow": data.yearLow,
+                        "MarketCap": data.marketCap,
+                        "SMA50": data.priceAvg50,
+                        "SMA200": data.priceAvg200,
+                        "Exchange": data.exchange,
+                        "Volume": data.volume,
+                        "AvgVolume": data.avgVolume,
+                        "OpenPrice": data.open_price,
+                        "PreviousClose": data.previousClose,
+                        "EPS": data.eps,
+                        "PE": data.pe,
+                        "OneDayVolatility": data.onedayvolatility,
+                        "Sector": data.sector,
+                        "Description": data.description,
+                        "Beta": data.beta,
+                        "1D": data.one_day,
+                        "5D": data.five_day,
+                        "1M": data.one_month,
+                        "3M": data.three_month,
+                        "6M": data.six_month,
+                        "YTD": data.ytd,
+                        "1Y": data.one_year,
+                        "DividendYieldTTM": data.dividendYielTTM,
+                        "PayoutRatioTTM": data.payoutRatioTTM,
+                        "CurrentRatioTTM": data.currentRatioTTM,
+                        "QuickRatioTTM": data.quickRatioTTM,
+                        "DebtRatioTTM": data.debtRatioTTM,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
+                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
+                        "NetIncomeGrowth": data.netIncomeGrowth,
+                        "revenueGrowth": data.revenueGrowth,
+                        "RSI": data.rsi
+                    } for data in query]
+        return JSONResponse({"graph_data": response.json(),"full_data":result})
     
-    
-    
+    elif range_type == "oneyear":
+        one_year = today - timedelta(days=365)
+        params ={
+            "from": one_year,
+            "to": today,
+            "apikey": os.getenv("API_KEY")
+        }
+        URL = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}"
+        with httpx.Client() as r:
+            response = r.get(URL, params = params )
+            query = db.session.query(Symbols.Csymbol,
+                                    Symbols.Cname,
+                                    StockInfo.price,
+                                    StockInfo.changesPercentage,
+                                    StockInfo.dayLow,
+                                    StockInfo.dayHigh,
+                                    StockInfo.yearHigh,
+                                    StockInfo.yearLow,
+                                    StockInfo.marketCap,
+                                    StockInfo.priceAvg50,
+                                    StockInfo.priceAvg200,
+                                    StockInfo.exchange,
+                                    StockInfo.volume,
+                                    StockInfo.avgVolume,
+                                    StockInfo.open_price,
+                                    StockInfo.previousClose,
+                                    StockInfo.eps,
+                                    StockInfo.pe,
+                                    StockInfo.onedayvolatility,
+                                    CompanyProfile.sector,
+                                    CompanyProfile.description,
+                                    CompanyProfile.beta,
+                                    StockPerformance.one_day,
+                                    StockPerformance.five_day,
+                                    StockPerformance.one_month,
+                                    StockPerformance.three_month,
+                                    StockPerformance.six_month,
+                                    StockPerformance.ytd,
+                                    StockPerformance.one_year,
+                                    FinancialMetrics.dividendYielTTM,
+                                    FinancialMetrics.payoutRatioTTM,
+                                    FinancialMetrics.currentRatioTTM,
+                                    FinancialMetrics.quickRatioTTM,
+                                    FinancialMetrics.debtRatioTTM,
+                                    FinancialMetrics.debtEquityRatioTTM,
+                                    FinancialMetrics.freeCashFlowPerShareTTM,
+                                    FinancialMetrics.priceToBookRatioTTM,
+                                    FinancialMetrics.netProfitMarginTTM,
+                                    FinancialMetrics.priceEarningsRatioTTM,
+                                    FinancialGrowth.revenueGrowth,
+                                    FinancialGrowth.netIncomeGrowth,
+                                    FinancialGrowth.revenueGrowth,
+                                    TechnicalIndicator.rsi                                    
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
+
+            result = [{
+                        "Symbol": data.Csymbol,
+                        "Name": data.Cname,
+                        "Price": f"{round(data.price, 2)} USD",
+                        "ChangePercentage": f"{data.changesPercentage}%",
+                        "DayLow": data.dayLow,
+                        "DayHigh": data.dayHigh,
+                        "YearHigh": data.yearHigh,
+                        "YearLow": data.yearLow,
+                        "MarketCap": data.marketCap,
+                        "SMA50": data.priceAvg50,
+                        "SMA200": data.priceAvg200,
+                        "Exchange": data.exchange,
+                        "Volume": data.volume,
+                        "AvgVolume": data.avgVolume,
+                        "OpenPrice": data.open_price,
+                        "PreviousClose": data.previousClose,
+                        "EPS": data.eps,
+                        "PE": data.pe,
+                        "OneDayVolatility": data.onedayvolatility,
+                        "Sector": data.sector,
+                        "Description": data.description,
+                        "Beta": data.beta,
+                        "1D": data.one_day,
+                        "5D": data.five_day,
+                        "1M": data.one_month,
+                        "3M": data.three_month,
+                        "6M": data.six_month,
+                        "YTD": data.ytd,
+                        "1Y": data.one_year,
+                        "DividendYieldTTM": data.dividendYielTTM,
+                        "PayoutRatioTTM": data.payoutRatioTTM,
+                        "CurrentRatioTTM": data.currentRatioTTM,
+                        "QuickRatioTTM": data.quickRatioTTM,
+                        "DebtRatioTTM": data.debtRatioTTM,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
+                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
+                        "NetIncomeGrowth": data.netIncomeGrowth,
+                        "revenueGrowth": data.revenueGrowth,
+                        "RSI": data.rsi
+                    } for data in query]
+        return JSONResponse({"graph_data": response.json(),"full_data":result})
