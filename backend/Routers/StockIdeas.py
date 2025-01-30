@@ -31,7 +31,7 @@ def RoundTheValue(val):
 async def Volatility(
     Search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, le=100)
+    limit: int = Query(10, le=50)
     ):
     try:
         skip = (page - 1) * limit
@@ -63,12 +63,7 @@ async def Volatility(
                 or_(
                     Symbols.Csymbol.ilike(f"%{Search}%"),
                     Symbols.Cname.ilike(f"%{Search}%"),
-                    StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                    StockInfo.price.ilike(f"%{Search}%"),
-                    StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                    StockInfo.volume.ilike(f"%{Search}%"),
-                    StockInfo.marketCap.ilike(f"%{Search}%"),
-                    CompanyProfile.beta.ilike(f"%{Search}%"),
+                   
                     CompanyProfile.sector.ilike(f"%{Search}%")  
 
                 )
@@ -131,17 +126,12 @@ async def YearHigh(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+                
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
     # query = query.filter(StockInfo.price >= StockInfo.yearHigh)
-
     results = query.offset(skip).limit(limit).all()
 
     result =[{ 
@@ -188,11 +178,7 @@ async def YearLow(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -246,12 +232,7 @@ async def UnderTen_Dollar(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -304,12 +285,7 @@ async def AboveTen_Dollar(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+                
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -362,12 +338,7 @@ async def NegativeBeta(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+             
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -419,12 +390,7 @@ async def LowBeta(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+              
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -490,12 +456,7 @@ async def HighRisk_Reward(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+                
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -550,20 +511,13 @@ async def DebtFree_Stocks(
                             join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    
-    
-    
+ 
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -619,12 +573,7 @@ async def Dividend(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+              
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -681,12 +630,7 @@ async def LowPERatio(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -743,12 +687,7 @@ async def TodayTopGain(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -809,12 +748,7 @@ async def TodayTopLoss(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+            
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -875,12 +809,7 @@ async def TopPerformance(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+              
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -945,12 +874,7 @@ async def HighDividendYield(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                StockInfo.price.ilike(f"%{Search}%"),
-                StockInfo.onedayvolatility.ilike(f"%{Search}%"),
-                StockInfo.changesPercentage.ilike(f"%{Search}%"),
-                StockInfo.volume.ilike(f"%{Search}%"),
-                StockInfo.marketCap.ilike(f"%{Search}%"),
-                CompanyProfile.beta.ilike(f"%{Search}%"),
+               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
