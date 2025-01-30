@@ -6,36 +6,50 @@ import { RootState } from '../../store/Store';
 
 export default function TopLoss() {
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [percentageChange, setPercentageChange] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState({
+    key: "",
+    direction: "asc",
+  });
 
   const dispatch = useDispatch();
   const toplossPayload = useSelector((state: RootState) => state.TopTrend.toplossPayload) || [];
-  console.log(toplossPayload);
 
   useEffect(() => {
-    dispatch(toploss({ page: currentPage, limit: itemsPerPage }));
-  }, [dispatch]);
+    dispatch<any>(toploss({ page: currentPage, limit: itemsPerPage }));
+  }, [dispatch, currentPage]);
+
+  const filteredStocks = (toplossPayload?.data || toplossPayload || []).filter((item: any) =>
+    item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const sortedData = [...filteredStocks].sort((a, b) => {
+    if (sortConfig.key) {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const currentItems = sortedData;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    dispatch(toploss({ page, limit: itemsPerPage }));
   };
 
   const headers = [
     { label: "Symbol", key: "symbol" },
     { label: "Stock Name", key: "stockName" },
     { label: "Current Price", key: "currentPrice" },
-    { label: "Percentage Change", key: "percentageChange" },
-    { label: "Sector", key: "sector" },
     { label: "Market Cap", key: "marketCap" },
     { label: "Day High", key: "dayHigh" },
     { label: "Day Low", key: "dayLow" },
-    { label: "52 Week High", key: "fiftyTwoWeekHigh" },
-    { label: "52 Week Low", key: "fiftyTwoWeekLow" },
+    { label: "52 Week High", key: "52WeeksHigh" },
+    { label: "52 Week Low", key: "52WeeksLow" },
     { label: "SMA50", key: "sma50" },
     { label: "SMA200", key: "sma200" },
     { label: "Beta", key: "beta" },
@@ -45,9 +59,10 @@ export default function TopLoss() {
     { label: "Profit Margins", key: "profitMargins" },
     { label: "Dividend Payout Ratio", key: "dividendPayoutRatio" },
     { label: "Revenue Growth", key: "revenueGrowth" },
+    { label: "Sector", key: "sector" },
   ];
 
-  const requestSort = (key: any) => {
+  const requestSort = (key: string) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
@@ -55,39 +70,13 @@ export default function TopLoss() {
     setSortConfig({ key, direction });
   };
 
-  const sortedStocks = Array.isArray(toplossPayload) ? [...toplossPayload].sort((a: any, b: any) => {
-    if (sortConfig.key) {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
-      // Check if the values are numbers and sort accordingly
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-      // If the values are strings, use localeCompare
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortConfig.direction === 'asc'
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-      return 0;
-    }
-    return 0;
-  }) : [];
-
-
-  const filteredStocks = sortedStocks.filter(stock =>
-    stock.symbol && stock.symbol.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (percentageChange ? stock.Change >= percentageChange : true)
-  );
-
-  const getColor = (percentage: number) => {
-    return percentage > 0 ? { color: 'green' } : { color: 'red' };
+  const getNumberColor = (key: string, value: number | string) => {
+    const numericValue = Number(value);
+    if (isNaN(numericValue)) return "";
+    if (key === "DayHigh" || key === "52WeeksHigh") return "text-success";
+    if (key === "DayLow" || key === "52WeeksLow") return "text-danger";
+    return numericValue < 0 ? "text-danger" : "text-success";
   };
-
-  // Paginate the filteredStocks
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedStocks = filteredStocks.slice(startIndex, startIndex + itemsPerPage);
-
 
   return (
     <section>
@@ -130,23 +119,17 @@ export default function TopLoss() {
             </thead>
 
             <tbody>
-              {paginatedStocks.length > 0 ? (
-                paginatedStocks.map((stock, index) => (
-
+              {currentItems.length > 0 ? (
+                currentItems.map((stock, index) => (
                   <tr key={index}>
-
                     <td>{stock.Symbol}</td>
                     <td>{stock.Name}</td>
                     <td>{stock.Price}</td>
-                    <td style={{ ...getColor(parseFloat(stock.Change)) }}>
-                      {stock.Change}
-                    </td>
-                    <td>{stock.Sector}</td>
                     <td>{stock.MarketCap}</td>
-                    <td>{stock.DayHigh}</td>
-                    <td>{stock.DayLow}</td>
-                    <td>{stock["52WeeksHigh"]}</td>
-                    <td>{stock["52WeeksLow"]}</td>
+                    <td className={getNumberColor("DayHigh", stock.DayHigh)}>{stock.DayHigh}</td>
+                    <td className={getNumberColor("DayLow", stock.DayLow)}>{stock.DayLow}</td>
+                    <td className={getNumberColor("52WeeksHigh", stock["52WeeksHigh"])}>{stock["52WeeksHigh"]}</td>
+                    <td className={getNumberColor("52WeeksLow", stock["52WeeksLow"])}>{stock["52WeeksLow"]}</td>
                     <td>{stock.SMA50}</td>
                     <td>{stock.SMA200}</td>
                     <td>{stock.Beta}</td>
@@ -156,17 +139,17 @@ export default function TopLoss() {
                     <td>{stock.ProfitMarginsTTM}</td>
                     <td>{stock.DividendPayoutRatioTTM}</td>
                     <td>{stock.RevenueGrowthTTM}</td>
+                    <td>{stock.Sector}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={headers.length} className="text-center">
+                  <td colSpan={16} className="text-center">
                     No data available
                   </td>
                 </tr>
               )}
             </tbody>
-
           </table>
         </div>
 
@@ -174,7 +157,7 @@ export default function TopLoss() {
           <Pagination
             current={currentPage}
             pageSize={itemsPerPage}
-            total={filteredStocks.length}
+            total={toplossPayload?.totalCount || 100}
             onChange={handlePageChange}
             showSizeChanger={false}
           />

@@ -1,179 +1,168 @@
-import React from 'react'
+import { useState, useEffect } from "react";
+import { Pagination } from "antd";
+import { useDispatch, useSelector } from "react-redux";
+import { negativebeta } from "./TopTrendSlice";
+import { RootState } from "../../store/Store";
+
 
 export default function NegativeBeta() {
+
+  const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: "asc" | "desc" }>({
+    key: "",
+    direction: "asc",
+  });
+
+  const dispatch = useDispatch()
+  const { negativebetaPayload } = useSelector(
+    (state: RootState) => state.TopTrend
+  );
+
+  useEffect(() => {
+    dispatch<any>(negativebeta({ page: currentPage, limit: itemsPerPage }));
+  }, [dispatch, currentPage])
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const filteredData = (negativebetaPayload?.data || negativebetaPayload || []).filter((item: any) =>
+    item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (sortConfig.key) {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const currentItems = sortedData;
+
+  const headers = [
+    { key: "Symbol", label: "Symbol" },
+    { key: "Name", label: "Stock Name" },
+    { key: "Price", label: "Current Price" },
+    { key: "1DVolatility", label: "1D Volatility" },
+    { key: "1D", label: "1 Day Change" },
+    { key: "1M", label: "1 Month Change" },
+    { key: "1Y", label: "1 Year Change" },
+    { key: "Volume", label: "Volume" },
+    { key: "MarketCap", label: "Market Cap" },
+    { key: "52WeeksHigh", label: "52 Week High" },
+    { key: "52WeeksLow", label: "52 Week Low" },
+    { key: "SMA50", label: "50-day SMA" },
+    { key: "SMA200", label: "200-day SMA" },
+    { key: "Beta", label: "Beta" },
+    { key: "RSI", label: "RSI" },
+    { key: "Sector", label: "Sector" }
+  ];
+
+
+  const handleSort = (key: string) => {
+    const direction =
+      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
+    setSortConfig({ key, direction });
+  };
+
+  const getNumberColor = (value: number | string) => {
+    const numericValue = Number(value);
+    if (isNaN(numericValue)) return "";
+    if (numericValue < 0) return "text-danger";
+    if (numericValue > 0) return "text-success";
+    return "";
+  };
+
   return (
-    <div>NegativeBeta</div>
-  )
+    <section>
+      <div className="d-flex toptrend-sub-banner p-5">
+        <div className="container">
+          <div className="row d-flex justify-content-between">
+            <div className="col-md-8">
+              <h3>Negative Beta Stocks</h3>
+              <p>Stocks with Negative Beta</p>
+            </div>
+
+            <div className="col-md-3 text-end my-4">
+              <input
+                type="text"
+                placeholder="Search stocks..."
+                className="form-control"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mb-5">
+        <div style={{ overflowX: "auto" }}>
+          <table className="table table-bordered mb-0">
+            <thead>
+              <tr>
+                {headers.map((header) => (
+                  <th
+                    key={header.key}
+                    style={{ padding: "20px", whiteSpace: "nowrap", cursor: "pointer" }}
+                    onClick={() => handleSort(header.key)}
+                  >
+                    {header.label}{" "}
+                    {sortConfig.key === header.key &&
+                      (sortConfig.direction === "asc" ? " ▲" : " ▼")}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {currentItems.length > 0 ? (
+                currentItems.map((stock, index) => (
+                  <tr key={index}>
+                    <td className='table-active'>{stock.Symbol}</td>
+                    <td>{stock.Name}</td>
+                    <td className={getNumberColor(stock.Price)}>{stock.Price}</td>
+                    <td >{stock["1DVolatility"]}</td>
+                    <td className={getNumberColor(stock["1D"])}>{stock["1D"]}</td>
+                    <td className={getNumberColor(stock["1M"])}>{stock["1M"]}</td>
+                    <td className={getNumberColor(stock["1Y"])}>{stock["1Y"]}</td>
+                    <td>{stock.Volume}</td>
+                    <td>{stock.MarketCap}</td>
+                    <td className={getNumberColor("52WeeksHigh", stock["52WeeksHigh"])}>{stock["52WeeksHigh"]}</td> {/* Always green */}
+                    <td className={getNumberColor("52WeeksLow", stock["52WeeksLow"])}>{stock["52WeeksLow"]}</td>
+                    <td>{stock.SMA50}</td>
+                    <td>{stock.SMA200}</td>
+                    <td>{stock.Beta}</td>
+                    <td>{stock.RSI}</td>
+                    <td>{stock.Sector}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={12} className="text-center">
+                    No data available
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="d-flex justify-content-center m-3">
+          <Pagination
+            current={currentPage}
+            pageSize={itemsPerPage}
+            total={negativebetaPayload?.totalCount || 100}
+            onChange={handlePageChange}
+            showSizeChanger={false}
+          />
+        </div>
+      </div>
+    </section>
+  );
 }
-
-
-
-// import { useState, useMemo } from "react";
-// import { Pagination } from "antd";
-// import negativebeta from "./negativebeta.json";
-
-// export default function NegativeBeta() {
-//     const [searchTerm, setSearchTerm] = useState("");
-//     const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: "asc" | "desc" }>({
-//         key: null,
-//         direction: "asc",
-//     });
-
-//     const itemsPerPage = 10;
-//     const [currentPage, setCurrentPage] = useState(1);
-
-//     const handlePageChange = (page: number) => {
-//         setCurrentPage(page);
-//     };
-
-//     const headers = [
-//         { key: "symbol", label: "Symbol" },
-//         { key: "stockName", label: "Stock Name" },
-//         { key: "currentPrice", label: "Current Price" },
-//         { key: "sector", label: "Sector" },
-//         { key: "52WeekHigh", label: "52 Week High" },
-//         { key: "52WeekLow", label: "52 Week Low" },
-//         { key: "highPercentage", label: "High Percentage" },
-//         { key: "lowPercentage", label: "Low Percentage" },
-//         { key: "volume", label: "Volume" },
-//         { key: "marketCap", label: "Market Cap" },
-//         { key: "peRatio", label: "P/E Ratio" },
-//         { key: "beta", label: "Beta" },
-//         { key: "dividendYield", label: "Dividend Yield" },
-//     ];
-
-//     const filteredStocks = useMemo(() => {
-//         return negativebeta.stocks.filter(
-//             (stock) =>
-//                 stock.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-//                 stock.stockName.toLowerCase().includes(searchTerm.toLowerCase())
-//         );
-//     }, [searchTerm]);
-
-//     const sortedStocks = useMemo(() => {
-//         return [...filteredStocks].sort((a: any, b: any) => {
-//             if (!sortConfig.key) return 0;
-
-//             const aValue = a[sortConfig.key];
-//             const bValue = b[sortConfig.key];
-
-//             if (typeof aValue === "number" && typeof bValue === "number") {
-//                 return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue;
-//             }
-
-//             if (aValue < bValue) {
-//                 return sortConfig.direction === "asc" ? -1 : 1;
-//             }
-//             if (aValue > bValue) {
-//                 return sortConfig.direction === "asc" ? 1 : -1;
-//             }
-//             return 0;
-//         });
-//     }, [filteredStocks, sortConfig]);
-
-//     const handleSort = (key: string) => {
-//         setSortConfig((prevConfig) => {
-//             if (prevConfig.key === key) {
-//                 return { key, direction: prevConfig.direction === "asc" ? "desc" : "asc" };
-//             }
-//             return { key, direction: "asc" };
-//         });
-//     };
-
-//     const getColor = (percentage: number) => {
-//         return percentage > 0 ? { color: "green" } : { color: "red" };
-//     };
-
-//     const startIndex = (currentPage - 1) * itemsPerPage;
-//     const currentPageStocks = sortedStocks.slice(startIndex, startIndex + itemsPerPage);
-
-//     return (
-//         <section>
-
-//             <div className="d-flex toptrend-sub-banner p-5">
-//                 <div className="container">
-//                     <div className="row d-flex justify-content-between">
-//                         <div className="col-md-8">
-//                             <h3>{negativebeta.category}</h3>
-//                             <p>{negativebeta.description}</p>
-//                         </div>
-
-//                         <div className="col-md-3 text-end my-4">
-//                             <input
-//                                 type="text"
-//                                 placeholder="Search stocks..."
-//                                 className="form-control"
-//                                 value={searchTerm}
-//                                 onChange={(e) => setSearchTerm(e.target.value)}
-//                             />
-//                         </div>
-//                     </div>
-//                 </div>
-//             </div>
-
-//             <div className="container mb-5">
-//                 <div style={{ overflowX: "auto" }}>
-//                     <table className="table table-bordered mb-0">
-//                         <thead>
-//                             <tr>
-//                                 {headers.map((header) => (
-//                                     <th
-//                                         key={header.key}
-//                                         style={{ padding: "20px", whiteSpace: "nowrap", cursor: "pointer" }}
-//                                         onClick={() => handleSort(header.key)}
-//                                     >
-//                                         {header.label}{" "}
-//                                         {sortConfig.key === header.key &&
-//                                             (sortConfig.direction === "asc" ? " ▲" : " ▼")}
-//                                     </th>
-//                                 ))}
-//                             </tr>
-//                         </thead>
-
-//                         <tbody>
-//                             {currentPageStocks.length > 0 ? (
-//                                 currentPageStocks.map((stock) => (
-//                                     <tr key={stock.symbol}>
-//                                         <td className="table-active">{stock.symbol}</td>
-//                                         <td>{stock.stockName}</td>
-//                                         <td>${stock.currentPrice.toFixed(2)}</td>
-//                                         <td>{stock.sector}</td>
-//                                         <td>${stock["52WeekHigh"].toFixed(2)}</td>
-//                                         <td>${stock["52WeekLow"].toFixed(2)}</td>
-//                                         <td style={{ padding: "12px", ...getColor(stock.highPercentage) }}>
-//                                             {stock.highPercentage}%
-//                                         </td>
-//                                         <td style={{ padding: "12px", ...getColor(stock.lowPercentage) }}>
-//                                             {stock.lowPercentage}%
-//                                         </td>
-//                                         <td>{stock.volume}</td>
-//                                         <td>{stock.marketCap}</td>
-//                                         <td>{stock.peRatio}</td>
-//                                         <td>{stock.beta}</td>
-//                                         <td>{stock.dividendYield}</td>
-//                                     </tr>
-//                                 ))
-//                             ) : (
-//                                 <tr>
-//                                     <td colSpan={9} className="text-center">
-//                                         No data available
-//                                     </td>
-//                                 </tr>
-//                             )}
-//                         </tbody>
-//                     </table>
-//                 </div>
-
-//                 <div className="d-flex justify-content-center m-3">
-//                     <Pagination
-//                         current={currentPage}
-//                         pageSize={itemsPerPage}
-//                         total={sortedStocks.length}
-//                         onChange={handlePageChange}
-//                         showSizeChanger={false}
-//                     />
-//                 </div>
-//             </div>
-//         </section>
-//     );
-// }

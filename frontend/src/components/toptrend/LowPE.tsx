@@ -1,76 +1,67 @@
 import { useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { lowperatio } from './TopTrendSlice';
+import { RootState } from '../../store/Store';
+import { Pagination } from 'antd';
 
-interface Stock {
-  Symbol: string;
-  Name: string;
-  Price: string;
-  Change: string;
-  Volume: string;
-  MarketCap: string;
-  Beta: number;
-  PERatio: number;
-  FreeCashFlowTTM: string;
-  ProfitMarginsTTM: string;
-  DividendPayoutRatioTTM: string;
-  RevenueGrowthTTM: string;
-  DebtToEquityRatioTTM: string;
-  PriceToBookRatioTTM: string;
-  ProfitMarginTTM: string;
-  Sector: string;
-}
 
 export default function LowPE() {
-  const [stocks, setStocks] = useState<Stock[]>([]);
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof Stock | null;
-    direction: 'ascending' | 'descending';
-  }>({
-    key: null,
-    direction: 'ascending',
-  });
+  const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({
+    key: "",
+    direction: "asc",
+  });
 
   const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch<any>(lowperatio({ page: 1, limit: 10 })).then((data: any) => {
-      setStocks(data.payload);
-    });
-  }, [dispatch]);
-
-  const handleSort = (key: keyof Stock) => {
-    setSortConfig((prevState) => ({
-      key,
-      direction:
-        prevState.key === key && prevState.direction === 'ascending'
-          ? 'descending'
-          : 'ascending',
-    }));
-  };
-
-  const getSortIcon = (key: keyof Stock) =>
-    sortConfig.key === key ? (sortConfig.direction === 'ascending' ? ' ▲' : ' ▼') : '';
-
-  const filteredStocks = stocks.filter((stock) =>
-    Object.values(stock).some((val) => val.toString().toLowerCase().includes(searchTerm.toLowerCase()))
+  const { lowperatioPayload } = useSelector(
+    (state: RootState) => state.TopTrend
   );
 
+  useEffect(() => {
+    dispatch<any>(lowperatio({ page: currentPage, limit: itemsPerPage }));
+  }, [dispatch, currentPage]);
+
+  const filteredStocks =
+    (lowperatioPayload?.data || lowperatioPayload || []).filter((item: any) =>
+      item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
   const sortedStocks = [...filteredStocks].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
-    if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+    if (sortConfig.key) {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+    }
     return 0;
   });
+
+  const currentItems = sortedStocks;
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleSort = (key: string) => {
+    const direction =
+      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
+    setSortConfig({ key, direction });
+  };
+
+  const getNumberColor = (value: number | string) => {
+    const numericValue = Number(value);
+    if (isNaN(numericValue)) return "";
+    if (numericValue < 0) return "text-danger";
+    if (numericValue > 0) return "text-success";
+    return "";
+  };
 
   const columns = [
     { key: 'Symbol', label: 'Symbol' },
     { key: 'Name', label: 'Stock Name' },
     { key: 'Price', label: 'Current Price' },
-    { key: 'Change', label: 'Change' },
     { key: 'Volume', label: 'Volume' },
     { key: 'MarketCap', label: 'Market Cap' },
     { key: 'Beta', label: 'Beta' },
@@ -108,43 +99,51 @@ export default function LowPE() {
       </div>
 
       <div className="container mb-5">
-        <div style={{ overflowX: 'auto' }}>
-          <table className="table table-bordered mb-0">
+        <div className="table-responsive mb-0" style={{ overflowX: 'auto' }}>
+          <table className="table table-hover table-bordered mb-0">
             <thead>
               <tr>
-                {columns.map(({ key, label }) => (
+                {columns.map((header) => (
                   <th
-                    key={key}
-                    onClick={() => handleSort(key as keyof Stock)}
-                    style={{ padding: '20px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-                    aria-label={`Sort by ${label}`}
+                    key={header.key}
+                    onClick={() => handleSort(header.key)}
+                    style={{ padding: "20px", whiteSpace: "nowrap", cursor: "pointer" }}
                   >
-                    {label} {getSortIcon(key as keyof Stock)}
+                    {header.label}
+                    {sortConfig.key === header.key ? (
+                      sortConfig.direction === "asc" ? (
+                        " ▲"
+                      ) : (
+                        " ▼"
+                      )
+                    ) : (
+                      ""
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
 
             <tbody>
-              {sortedStocks.length > 0 ? (
-                sortedStocks.map((stock, index) => (
+              {currentItems.length > 0 ? (
+                currentItems.map((stock, index) => (
                   <tr key={index}>
-                    <td>{stock.Symbol}</td>
+                    <td style={{ padding: '12px', cursor: "pointer" }} className='table-active'>{stock.Symbol}</td>
                     <td>{stock.Name}</td>
-                    <td>{stock.Price || 'Data not available'}</td>
-                    <td>{stock.Change || 'Data not available'}</td>
-                    <td>{stock.Volume || 'Data not available'}</td>
-                    <td>{stock.MarketCap || 'Data not available'}</td>
-                    <td>{stock.Beta || 'Data not available'}</td>
-                    <td>{stock.PERatio || 'Data not available'}</td>
-                    <td>{stock.FreeCashFlowTTM || 'Data not available'}</td>
-                    <td>{stock.ProfitMarginsTTM || 'Data not available'}</td>
-                    <td>{stock.DividendPayoutRatioTTM || 'Data not available'}</td>
-                    <td>{stock.RevenueGrowthTTM || 'Data not available'}</td>
-                    <td>{stock.DebtToEquityRatioTTM || 'Data not available'}</td>
-                    <td>{stock.PriceToBookRatioTTM || 'Data not available'}</td>
-                    <td>{stock.ProfitMarginTTM || 'Data not available'}</td>
-                    <td>{stock.Sector || 'Data not available'}</td>
+                    <td className={getNumberColor(stock.Price)}>{stock.Price}</td>
+                 
+                    <td>{stock.Volume}</td>
+                    <td>{stock.MarketCap}</td>
+                    <td>{stock.Beta}</td>
+                    <td className={getNumberColor(stock.PERatio)}>{stock.PERatio}</td>
+                    <td className={getNumberColor(stock.FreeCashFlowTTM)}>{stock.FreeCashFlowTTM}</td>
+                    <td>{stock.ProfitMarginsTTM}</td>
+                    <td className={getNumberColor(stock.DividendPayoutRatioTTM)}>{stock.DividendPayoutRatioTTM}</td>
+                    <td>{stock.RevenueGrowthTTM}</td>
+                    <td className={getNumberColor(stock.DebtToEquityRatioTTM)}>{stock.DebtToEquityRatioTTM}</td>
+                    <td className={getNumberColor(stock.PriceToBookRatioTTM)}>{stock.PriceToBookRatioTTM}</td>
+                    <td>{stock.ProfitMarginTTM}</td>
+                    <td>{stock.Sector}</td>
                   </tr>
                 ))
               ) : (
@@ -157,6 +156,16 @@ export default function LowPE() {
 
             </tbody>
           </table>
+        </div>
+        <div className="d-flex justify-content-center m-3">
+          <Pagination
+            current={currentPage}
+            pageSize={itemsPerPage}
+            onChange={handlePageChange}
+            showSizeChanger={false}
+            total={lowperatioPayload?.totalCount || 100}
+          />
+
         </div>
       </div>
     </section>

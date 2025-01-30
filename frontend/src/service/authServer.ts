@@ -3,14 +3,34 @@ import { BASE_URL } from '../config/config';
 
 export const AuthService = {
 
-    volatility: async () => {
-        const response = await axios.get(`${BASE_URL}volatility?page=${1}&limit=${10}`);
-        return response.data;
+    fetchVolatility: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}volatility`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
     },
 
-    hignin52: async (page: number, limit: number) => {
+
+    hignin52: async (Search:any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}52weekshigh`, {
+                params: { Search, page, limit},
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    lowin52: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}52weekslow`, {
                 params: { page, limit },
             });
             return response.data;
@@ -44,7 +64,7 @@ export const AuthService = {
         }
     },
 
-    
+
     toploss: async (page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}todaytoploss`, {
@@ -56,4 +76,115 @@ export const AuthService = {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
+
+
+    topperform: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}todaytoploss`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+
+    underfiftydollor: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}abovetendoller`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    undertendollar: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}undertendollar`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    negativebeta: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}negativebeta`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    lowbeta: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}lowbeta`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    highriskandreward: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}highriskandreward`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    debtfreestocks: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}debtfreestocks`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    dividend: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}dividend`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    highdividend: async (page: number, limit: number) => {
+        try {
+            const response = await axios.get(`${BASE_URL}highdividendyield`, {
+                params: { page, limit },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching 52-week high data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
 };

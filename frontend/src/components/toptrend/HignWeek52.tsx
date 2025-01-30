@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { Pagination } from "antd";
 import "antd/dist/reset.css";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchVolatility } from "./TopTrendSlice";
+import { hignin52 } from "./TopTrendSlice";
 import { RootState } from "../../store/Store";
 
 
-export default function VolatilityDetails() {
+export default function HignWeek52() {
 
     const itemsPerPage = 10;
     const [currentPage, setCurrentPage] = useState(1);
@@ -17,18 +17,35 @@ export default function VolatilityDetails() {
     });
 
     const dispatch = useDispatch();
-    const { fetchVolatilityPayload, error, loading } = useSelector(
+    const { hignin52Payload, error, loading } = useSelector(
         (state: RootState) => state.TopTrend
     );
 
+    function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+        let timer: ReturnType<typeof setTimeout>;
+        return function (this: any, ...args: Parameters<T>) {
+            clearTimeout(timer);
+            timer = setTimeout(() => func.apply(this, args), delay);
+        } as T;
+    }
+
+    const fetchData = debounce((Search, page) => {
+        dispatch<any>(hignin52({ Search, page, limit: itemsPerPage }));
+    }, 500);
+
     useEffect(() => {
-        dispatch<any>(fetchVolatility({ page: currentPage, limit: itemsPerPage }));
-    }, [currentPage, dispatch]);
+        fetchData(searchTerm, currentPage);
+    }, [searchTerm, currentPage, dispatch]);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value);
+    };
 
     const filteredData =
-        (fetchVolatilityPayload?.data || fetchVolatilityPayload || []).filter((item: any) =>
+        (hignin52Payload?.data || hignin52Payload || []).filter((item: any) =>
             item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
         );
+
 
     const sortedData = [...filteredData].sort((a, b) => {
         if (sortConfig.key) {
@@ -41,6 +58,7 @@ export default function VolatilityDetails() {
     });
 
     const currentItems = sortedData;
+    console.log(currentItems);
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
@@ -56,12 +74,13 @@ export default function VolatilityDetails() {
         { label: "Symbol", key: "Symbol" },
         { label: "Name", key: "Name" },
         { label: "Price", key: "Price" },
-        { label: "1D Volatility", key: "1DVolatility" },
         { label: "1D", key: "1D" },
         { label: "1M", key: "1M" },
         { label: "1Y", key: "1Y" },
         { label: "Volume", key: "Volume" },
         { label: "MarketCap", key: "MarketCap" },
+        { label: '52 Weeks High', key: '52WeeksHigh' },
+        { label: '52 Weeks Low', key: '52WeeksLow' },
         { label: "SMA50", key: "SMA50" },
         { label: "SMA200", key: "SMA200" },
         { label: "Beta", key: "Beta" },
@@ -78,15 +97,14 @@ export default function VolatilityDetails() {
         return "";
     };
 
-
     return (
         <section>
             <div className="d-flex toptrend-sub-banner p-5">
                 <div className="container">
                     <div className="row d-flex justify-content-between">
                         <div className="col-md-8">
-                            <h3>Volatility</h3>
-                            <p>Stocks with high price swings, offering great opportunities for short-term gains.</p>
+                            <h3>52 week high  stock</h3>
+                            <p>Stocks with 52 week high stock</p>
                         </div>
                         <div className="col-md-3 text-end my-4">
                             <input
@@ -94,7 +112,7 @@ export default function VolatilityDetails() {
                                 placeholder="Search stocks..."
                                 className="form-control"
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={handleSearchChange}
                             />
                         </div>
                     </div>
@@ -104,7 +122,7 @@ export default function VolatilityDetails() {
             <div className="container mb-5">
                 {error && <div className="alert alert-danger">{error}</div>}
                 {loading ? (
-                    <div>Loading...</div>
+                    <div className="d-flex justify-content-center">Loading...</div>
                 ) : (
                     <>
                         <div className="table-responsive mb-0">
@@ -138,15 +156,25 @@ export default function VolatilityDetails() {
                                             <tr key={index}>
                                                 <td style={{ padding: '12px', cursor: "pointer" }} className='table-active'>{stock.Symbol}</td>
                                                 <td style={{ padding: '12px', cursor: "pointer" }}>{stock.Name}</td>
-                                                <td style={{ padding: '1px 20px', cursor: "pointer" }} className={getNumberColor(stock.Price)}>{stock.Price}</td>
-                                                <td style={{ cursor: "pointer" }} className={getNumberColor(stock["1DVolatility"])}>
-                                                    {stock["1DVolatility"]}
+                                                <td
+                                                    style={{ padding: '1px 20px', cursor: "pointer" }}
+                                                    className={getNumberColor(stock.Price)}
+                                                >
+                                                    {stock.Price ? `$${parseFloat(stock.Price.replace("USD", "").trim())}` : "-"}
                                                 </td>
                                                 <td className={getNumberColor(stock["1D"])}>{stock["1D"]}</td>
                                                 <td className={getNumberColor(stock["1M"])}>{stock["1M"]}</td>
                                                 <td className={getNumberColor(stock["1Y"])}>{stock["1Y"]}</td>
                                                 <td>{stock.Volume}</td>
                                                 <td>{stock.MarketCap}</td>
+                                                < td style={{
+                                                    padding: '12px',
+                                                    color: 'green',
+                                                }}> ${stock['52WeeksHigh']} </td>
+                                                < td style={{
+                                                    padding: '12px',
+                                                    color: 'red',
+                                                }}> ${stock['52WeeksLow']} </td>
                                                 <td>{stock.SMA50}</td>
                                                 <td>{stock.SMA200}</td>
                                                 <td>{stock.Beta}</td>
@@ -165,19 +193,19 @@ export default function VolatilityDetails() {
                                 </tbody>
                             </table>
                         </div>
+
                         <div className="d-flex justify-content-center m-3">
                             <Pagination
                                 current={currentPage}
                                 pageSize={itemsPerPage}
                                 onChange={handlePageChange}
                                 showSizeChanger={false}
-                                total={fetchVolatilityPayload?.totalCount || 100}
+                                total={hignin52Payload?.totalCount || 100}
                             />
-
                         </div>
                     </>
                 )}
             </div>
         </section>
-    );
+    )
 }
