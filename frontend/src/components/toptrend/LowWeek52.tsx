@@ -21,9 +21,25 @@ export default function LowWeek52() {
         (state: RootState) => state.TopTrend
     );
 
+    function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+        let timer: ReturnType<typeof setTimeout>;
+        return function (this: any, ...args: Parameters<T>) {
+            clearTimeout(timer);
+            timer = setTimeout(() => func.apply(this, args), delay);
+        } as T;
+    }
+
+    const fetchData = debounce((Search, page) => {
+        dispatch<any>(lowin52({ Search, page, limit: itemsPerPage }));
+    }, 500);
+
     useEffect(() => {
-        dispatch<any>(lowin52({ page: currentPage, limit: itemsPerPage }));
-    }, [currentPage, dispatch]);
+        fetchData(searchTerm, currentPage);
+    }, [searchTerm, currentPage, dispatch]);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value);
+    };
 
     const filteredData =
         (lowin52Payload?.data || lowin52Payload || []).filter((item: any) =>
@@ -79,7 +95,7 @@ export default function LowWeek52() {
         return "";
     };
 
-
+    
     return (
         <section>
             <div className="d-flex toptrend-sub-banner p-5">
@@ -95,7 +111,7 @@ export default function LowWeek52() {
                                 placeholder="Search stocks..."
                                 className="form-control"
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={handleSearchChange}
                             />
                         </div>
                     </div>
@@ -105,7 +121,7 @@ export default function LowWeek52() {
             <div className="container mb-5">
                 {error && <div className="alert alert-danger">{error}</div>}
                 {loading ? (
-                    <div>Loading...</div>
+                    <div className="d-flex justify-content-center">Loading...</div>
                 ) : (
                     <>
                         <div className="table-responsive mb-0">

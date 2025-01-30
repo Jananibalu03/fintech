@@ -41,11 +41,12 @@ export default function HignWeek52() {
         setSearchTerm(e.target.value);
     };
 
-    const filteredData =
-        (hignin52Payload?.data || hignin52Payload || []).filter((item: any) =>
-            item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+    // const filteredData =
+    //     (hignin52Payload?.data || hignin52Payload || []).filter((item: any) =>
+    //         item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
+    //     );
 
+    const filteredData = hignin52Payload?.data || hignin52Payload || [];
 
     const sortedData = [...filteredData].sort((a, b) => {
         if (sortConfig.key) {
@@ -58,7 +59,6 @@ export default function HignWeek52() {
     });
 
     const currentItems = sortedData;
-    console.log(currentItems);
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
@@ -97,6 +97,7 @@ export default function HignWeek52() {
         return "";
     };
 
+    
     return (
         <section>
             <div className="d-flex toptrend-sub-banner p-5">

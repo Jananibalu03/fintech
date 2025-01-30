@@ -99,9 +99,9 @@ export const hignin52 = createAsyncThunk(
 
 export const lowin52 = createAsyncThunk(
     'volatility/lowin52',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search:any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.lowin52(page, limit);
+            const data = await AuthService.lowin52(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');

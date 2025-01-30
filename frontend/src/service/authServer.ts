@@ -16,10 +16,10 @@ export const AuthService = {
     },
 
 
-    hignin52: async (Search:any, page: number, limit: number) => {
+    hignin52: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}52weekshigh`, {
-                params: { Search, page, limit},
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -28,10 +28,10 @@ export const AuthService = {
         }
     },
 
-    lowin52: async (page: number, limit: number) => {
+    lowin52: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}52weekslow`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
