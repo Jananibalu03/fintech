@@ -25,7 +25,10 @@ def format_large_number(value):
         return str(value)  # For values less than 1,000
 
 def RoundTheValue(val):
-    return round(val,2)
+    if not val:
+        return None
+    else:
+        return round(val,2)
 
 @StockIdeaRouter.get("/stock/volatility")
 async def Volatility(
@@ -33,42 +36,81 @@ async def Volatility(
     page: int = Query(1, ge=1),
     limit: int = Query(10, le=50)
     ):
-    try:
-        skip = (page - 1) * limit
+    skip = max(0, (page - 1) * limit)
 
-    #     latest_stockinfo = db.session.query(
-    #         StockInfo.symbol,
-    #         func.max(StockInfo.id).label("latest_id")  # Get latest ID instead of timestamp
-    #     ).group_by(StockInfo.symbol).subquery()
-    #  join(
-    #                                 latest_stockinfo, Symbols.Csymbol == latest_stockinfo.c.symbol
-    #                             ).join(
-    #                                 StockInfo, and_(
-    #                                     Symbols.Csymbol == StockInfo.symbol,
-    #                                     StockInfo.id == latest_stockinfo.c.latest_id  # Use latest ID instead of timestamp
-    #                                 )
-    #                             ).\
+#     latest_stockinfo = db.session.query(
+#         StockInfo.symbol,
+#         func.max(StockInfo.id).label("latest_id")  # Get latest ID instead of timestamp
+#     ).group_by(StockInfo.symbol).subquery()
+#  outerjoin(
+#                                 latest_stockinfo, Symbols.Csymbol == latest_stockinfo.c.symbol
+#                             ).outerjoin(
+#                                 StockInfo, and_(
+#                                     Symbols.Csymbol == StockInfo.symbol,
+#                                     StockInfo.id == latest_stockinfo.c.latest_id  # Use latest ID instead of timestamp
+#                                 )
+#                             ).\
 
-        query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.onedayvolatility,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
-                                CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, TechnicalIndicator.rsi,
-                                StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM).\
-                                join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                                join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                                join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                                join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                                join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+    query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.onedayvolatility,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
+                            CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, TechnicalIndicator.rsi,
+                            StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM).\
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
-        if Search:
-            query = query.filter(
-                or_(
-                    Symbols.Csymbol.ilike(f"%{Search}%"),
-                    Symbols.Cname.ilike(f"%{Search}%"),
-                   
-                    CompanyProfile.sector.ilike(f"%{Search}%")  
 
-                )
+    # query = query.filter(StockInfo.price > 500.00)
+
+
+    if Search:
+        query = query.filter(
+            or_(
+                Symbols.Csymbol.ilike(f"%{Search}%"),
+                Symbols.Cname.ilike(f"%{Search}%"),
+                
+                CompanyProfile.sector.ilike(f"%{Search}%")  
+
             )
+        )
+
+        results = query.all()
+        result =[{ 
+                "Symbol": result.Csymbol,
+                "Name": result.Cname,
+                "Price": f"{round(result.price,2)} USD",
+                "Change": f"{result.changesPercentage}%",
+                "1DVolatility": result.onedayvolatility,
+                "1D": result.one_day,
+                "1M": result.one_month,
+                "1Y": result.one_year,
+                "Volume": format_large_number(result.volume),
+                "MarketCap": format_large_number(result.marketCap),
+                "SMA50": result.priceAvg50,
+                "SMA200": result.priceAvg200,
+                "Beta":result.beta,
+                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                "RSI": result.rsi,
+                "Sector": result.sector
+            } 
+            for result in results]
         
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+    
+    else:
+
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
@@ -90,72 +132,108 @@ async def Volatility(
                     "Sector": result.sector
                 } 
                 for result in results]
-
-        # Convert to DataFrame
-        df = pd.DataFrame(result)
-
-        # Save to CSV
-        df.to_csv('stock_data.csv', index=False)
-
-        return JSONResponse(result)
-    except Exception as e:
-        return JSONResponse(e.args)
-
+        
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    
 
 
 @StockIdeaRouter.get("/stock/52weekshigh")
 async def YearHigh(
     Search: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, le=100)
+    page: int = Query(1),
+    limit: int = Query(10)
     ):
-    skip = (page - 1) * limit
+    skip = max(0, (page - 1) * limit)
 
     
-    query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
+    query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM, TechnicalIndicator.rsi).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol)
+
 
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
-    # query = query.filter(StockInfo.price >= StockInfo.yearHigh)
-    results = query.offset(skip).limit(limit).all()
 
-    result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "RSI": result.rsi,
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
-                "Sector": result.sector
-              } 
-              for result in results]
+        results = query.all()
+        result =[{ 
+            "Symbol": result.Csymbol,
+            "Name": result.Cname,
+            "Price": f"{round(result.price,2)} USD",
+            "Change": f"{result.changesPercentage}%",
+            "1D": result.one_day,
+            "1M": result.one_month,
+            "1Y": result.one_year,
+            "Volume": format_large_number(result.volume),
+            "MarketCap": format_large_number(result.marketCap),
+            "52WeeksHigh": result.yearHigh,
+            "52WeeksLow": result.yearLow,
+            "SMA50": result.priceAvg50,
+            "SMA200": result.priceAvg200,
+            "Beta":result.beta,
+            "RSI": result.rsi,
+            "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+            "Sector": result.sector
+            } 
+            for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+    else:
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "RSI": result.rsi,
+                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "Sector": result.sector
+                } 
+                for result in results]
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_page": page
+        })
 
 @StockIdeaRouter.get("/stock/52weekslow")
 async def YearLow(
@@ -167,11 +245,11 @@ async def YearLow(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
         query = query.filter(
@@ -183,11 +261,8 @@ async def YearLow(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
-
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        results = query.all()
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -207,8 +282,51 @@ async def YearLow(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+    else:
+    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+       
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "Marketap": format_large_number(result.marketCap),
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "RSI": result.rsi,
+                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
 
 
 
@@ -222,10 +340,10 @@ async def UnderTen_Dollar(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     # query = query.filter(StockInfo.price <= 10)
     if Search:
         query = query.filter(
@@ -237,11 +355,8 @@ async def UnderTen_Dollar(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
-
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        results = query.all()
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -261,8 +376,54 @@ async def UnderTen_Dollar(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+
+    else:
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "RSI": result.rsi,
+                    "PERatio": result.pe,
+                    "EPS": result.eps,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+
 
 
 @StockIdeaRouter.get("/stock/abovetendoller")
@@ -275,26 +436,22 @@ async def AboveTen_Dollar(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     # query = query.filter(StockInfo.price >= 10)
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
-
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        results = query.all()
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -314,8 +471,53 @@ async def AboveTen_Dollar(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+
+    else:
+
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "RSI": result.rsi,
+                    "PERatio": result.pe,
+                    "EPS": result.eps,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 
 @StockIdeaRouter.get("/stock/negativebeta")
@@ -328,10 +530,10 @@ async def NegativeBeta(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     # query = query.filter(CompanyProfile.beta < 0)
     if Search:
         query = query.filter(
@@ -343,11 +545,8 @@ async def NegativeBeta(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
-
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        results = query.all()
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -367,8 +566,52 @@ async def NegativeBeta(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    else:
+
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "RSI": result.rsi,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 @StockIdeaRouter.get("/stock/lowbeta")
 async def LowBeta(
@@ -380,10 +623,10 @@ async def LowBeta(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     # query = query.filter(CompanyProfile.beta < 1)
     if Search:
         query = query.filter(
@@ -395,11 +638,8 @@ async def LowBeta(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
-
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        results = query.all()
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -419,8 +659,52 @@ async def LowBeta(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    else:
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "RSI": result.rsi,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 
 @StockIdeaRouter.get("/stock/highriskandreward")
@@ -434,11 +718,11 @@ async def HighRisk_Reward(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.priceBookValueRatioTTM,FinancialMetrics.debtEquityRatioTTM,\
                             FinancialMetrics.dividendYielTTM,FinancialMetrics.priceEarningsRatioTTM,TechnicalIndicator.rsi).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     #  # Query for high-risk, high-reward stocks
     # query = query.filter(
@@ -456,16 +740,12 @@ async def HighRisk_Reward(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
-
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        results = query.all()
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -491,8 +771,51 @@ async def HighRisk_Reward(
                 "Sector": result.sector
               } 
               for result in results]
+        
+    else:
+                
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "RSI": result.rsi,
+                    "PERatio": result.pe,
+                    "PBRatioTTM": result.priceBookValueRatioTTM, 
+                    "EarningGrowthTTM": result.priceEarningsRatioTTM, 
+                    "DebttoEquityTTM": result.debtEquityRatioTTM, 
+                    "RisktoRewardRatioTTM": "pending", 
+                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+
 
 
 @StockIdeaRouter.get("/stock/debtfreestocks")
@@ -506,11 +829,11 @@ async def DebtFree_Stocks(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.currentRatioTTM,FinancialMetrics.quickRatioTTM,FinancialMetrics.freeCashFlowPerShareTTM,
                             FinancialMetrics.payoutRatioTTM,FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
  
     if Search:
         query = query.filter(
@@ -522,11 +845,9 @@ async def DebtFree_Stocks(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
-
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        results = query.all()
+        
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -545,8 +866,50 @@ async def DebtFree_Stocks(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    else:
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "Beta":result.beta,
+                    "PERatio": result.pe,
+                    "CurrentRatioTTM": result.currentRatioTTM, 
+                    "QuickRatioTTM": result.quickRatioTTM,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
+                    "RevenueGrowthTTM": result.revenueGrowth,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 
 @StockIdeaRouter.get("/stock/dividend")
@@ -560,11 +923,11 @@ async def Dividend(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,
                             FinancialMetrics.netProfitMarginTTM,FinancialMetrics.dividendYielTTM,FinancialGrowth.revenueGrowth).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
     
@@ -578,31 +941,74 @@ async def Dividend(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+        results = query.all()
 
-    results = query.offset(skip).limit(limit).all()
+        result =[{ 
+            "Symbol": result.Csymbol,
+            "Name": result.Cname,
+            "Price": f"{round(result.price,2)} USD",
+            "Change": f"{result.changesPercentage}%",
+            "1DVolatility": result.onedayvolatility,
+            "Volume": format_large_number(result.volume),
+            "MarketCap": format_large_number(result.marketCap),
+            "DividendYieldTTM": result.dividendYielTTM,
+            "EPS": result.eps,
+            "Beta":result.beta,
+            "PERatio": result.pe,
+            "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+            "ProfitMarginsTTM": result.netProfitMarginTTM,
+            "DividendPayoutRatioTTM": result.payoutRatioTTM,
+            "RevenueGrowthTTM": result.revenueGrowth,
+            "Sector": result.sector
+            } 
+            for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "DividendYieldTTM": result.dividendYielTTM,
-                "EPS": result.eps,
-                "Beta":result.beta,
-                "PERatio": result.pe,
-                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": result.netProfitMarginTTM,
-                "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": result.revenueGrowth,
-                "Sector": result.sector
-              } 
-              for result in results]
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    
+    else:
 
-    return JSONResponse(result)
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "1DVolatility": result.onedayvolatility,
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "DividendYieldTTM": result.dividendYielTTM,
+                    "EPS": result.eps,
+                    "Beta":result.beta,
+                    "PERatio": result.pe,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
+                    "RevenueGrowthTTM": result.revenueGrowth,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+
 
 
 @StockIdeaRouter.get("/stock/lowperatio")
@@ -617,11 +1023,11 @@ async def LowPERatio(
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,
                             FinancialMetrics.payoutRatioTTM,FinancialMetrics.debtEquityRatioTTM,FinancialMetrics.priceToBookRatioTTM,
                             FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
     
@@ -635,11 +1041,9 @@ async def LowPERatio(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+        results = query.all()
 
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -658,8 +1062,50 @@ async def LowPERatio(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    else:
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "Beta":result.beta,
+                    "PERatio": result.pe,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+                    "ProfitMarginsTTM":  result.netProfitMarginTTM,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
+                    "RevenueGrowthTTM": result.revenueGrowth,
+                    "DebtToEquityRatioTTM": result.debtEquityRatioTTM,
+                    "PriceToBookRatioTTM": result.priceToBookRatioTTM,
+                    # "ProfitMarginTTM": result.netProfitMarginTTM,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 
 @StockIdeaRouter.get("/stock/todaytopgain")
@@ -673,15 +1119,13 @@ async def TodayTopGain(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,
                             TechnicalIndicator.rsi, FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    
-    
-    
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+
     if Search:
         query = query.filter(
             or_(
@@ -692,35 +1136,79 @@ async def TodayTopGain(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+        results = query.all()
 
-    results = query.offset(skip).limit(limit).all()
+        result =[{ 
+            "Symbol": result.Csymbol,
+            "Name": result.Cname,
+            "Price": f"{round(result.price,2)} USD",
+            "Change": f"{result.changesPercentage}%",
+            "Volume": format_large_number(result.volume),
+            "MarketCap": format_large_number(result.marketCap),
+            "DayHigh": result.dayHigh,
+            "DayLow": result.dayLow,
+            "52WeeksHigh": result.yearHigh,
+            "52WeeksLow": result.yearLow,
+            "SMA50": result.priceAvg50,
+            "SMA200": result.priceAvg200,
+            "Beta":result.beta,
+            "PERatio": result.pe,
+            "RSI": result.rsi,
+            "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+            "ProfitMarginsTTM": result.netProfitMarginTTM,
+            "DividendPayoutRatioTTM": result.payoutRatioTTM,
+            "RevenueGrowthTTM": result.revenueGrowth,
+            "Sector": result.sector
+            } 
+            for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "DayHigh": result.dayHigh,
-                "DayLow": result.dayLow,
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "PERatio": result.pe,
-                "RSI": result.rsi,
-                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": result.netProfitMarginTTM,
-                "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": result.revenueGrowth,
-                "Sector": result.sector
-              } 
-              for result in results]
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    else: 
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "DayHigh": result.dayHigh,
+                    "DayLow": result.dayLow,
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "PERatio": result.pe,
+                    "RSI": result.rsi,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
+                    "RevenueGrowthTTM": result.revenueGrowth,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 
 @StockIdeaRouter.get("/stock/todaytoploss")
@@ -734,12 +1222,12 @@ async def TodayTopLoss(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,TechnicalIndicator.rsi,
                             FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     
     
@@ -753,35 +1241,79 @@ async def TodayTopLoss(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+        results = query.all()
+        result =[{ 
+            "Symbol": result.Csymbol,
+            "Name": result.Cname,
+            "Price": f"{round(result.price,2)} USD",
+            "Change": f"{result.changesPercentage}%",
+            "Volume": format_large_number(result.volume),
+            "MarketCap": format_large_number(result.marketCap),
+            "DayHigh": result.dayHigh,
+            "DayLow": result.dayLow,
+            "52WeeksHigh": result.yearHigh,
+            "52WeeksLow": result.yearLow,
+            "SMA50": result.priceAvg50,
+            "SMA200": result.priceAvg200,
+            "Beta":result.beta,
+            "PERatio": result.pe,
+            "RSI": result.rsi,
+            "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+            "ProfitMarginsTTM": result.netProfitMarginTTM,
+            "DividendPayoutRatioTTM": result.payoutRatioTTM,
+            "RevenueGrowthTTM": result.revenueGrowth,
+            "Sector": result.sector
+            } 
+            for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    results = query.offset(skip).limit(limit).all()
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+    else:
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "DayHigh": result.dayHigh,
-                "DayLow": result.dayLow,
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "PERatio": result.pe,
-                "RSI": result.rsi,
-                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": result.netProfitMarginTTM,
-                "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": result.revenueGrowth,
-                "Sector": result.sector
-              } 
-              for result in results]
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
 
-    return JSONResponse(result)
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "DayHigh": result.dayHigh,
+                    "DayLow": result.dayLow,
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "PERatio": result.pe,
+                    "RSI": result.rsi,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
+                    "RevenueGrowthTTM": result.revenueGrowth,
+                    "Sector": result.sector
+                } 
+                for result in results]
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+
 
 
 @StockIdeaRouter.get("/stock/topperformance")
@@ -795,15 +1327,13 @@ async def TopPerformance(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi,
                             FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    
-    
-    
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+
     if Search:
         query = query.filter(
             or_(
@@ -814,11 +1344,9 @@ async def TopPerformance(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+        results = query.all()
 
-    results = query.offset(skip).limit(limit).all()
-
-    result =[{ 
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -845,8 +1373,58 @@ async def TopPerformance(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+            })
+
+    else:
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "DayHigh": result.dayHigh,
+                    "DayLow": result.dayLow,
+                    "1D": result.one_day,
+                    "1M": result.one_month,
+                    "1Y": result.one_year,
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "SMA50": result.priceAvg50,
+                    "SMA200": result.priceAvg200,
+                    "Beta":result.beta,
+                    "PERatio": result.pe,
+                    "EPS": result.eps,
+                    "RSI": result.rsi,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM,
+                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
+                    "RevenueGrowthTTM": result.revenueGrowth,
+                    "Sector": result.sector
+                } 
+                for result in results]
+        
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 
 
@@ -861,14 +1439,12 @@ async def HighDividendYield(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.payoutRatioTTM,FinancialMetrics.dividendYielTTM,FinancialMetrics.dividendPerShareTTM,
                             FinancialMetrics.freeCashFlowPerShareTTM,FinancialGrowth.revenueGrowth,FinancialGrowth.netIncomeGrowth).\
-                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    
-    
-    
+                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+
     if Search:
         query = query.filter(
             or_(
@@ -879,11 +1455,10 @@ async def HighDividendYield(
 
             )
         )
-    # query = query.filter(StockInfo.price <= StockInfo.yearLow)
 
-    results = query.offset(skip).limit(limit).all()
+        results = query.all()
 
-    result =[{ 
+        result =[{ 
                 "Symbol": result.Csymbol,
                 "Name": result.Cname,
                 "Price": f"{round(result.price,2)} USD",
@@ -904,9 +1479,53 @@ async def HighDividendYield(
                 "Sector": result.sector
               } 
               for result in results]
+        
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
-    return JSONResponse(result)
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
+    
+    else:
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
 
+        # query = query.filter(StockInfo.price <= StockInfo.yearLow)
+
+        results = query.offset(skip).limit(limit).all()
+
+        result =[{ 
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price,2)} USD",
+                    "Change": f"{result.changesPercentage}%",
+                    "Volume": format_large_number(result.volume),
+                    "MarketCap": format_large_number(result.marketCap),
+                    "52WeeksHigh": result.yearHigh,
+                    "52WeeksLow": result.yearLow,
+                    "Beta":result.beta,
+                    "PERatio": result.pe,
+                    "EPS": result.eps,      
+                    "PayoutRatioTTM": result.payoutRatioTTM,
+                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
+                    "DividendPerShareTTM": result.dividendPerShareTTM,
+                    "RevenueGrowthTTM": result.revenueGrowth,
+                    "NetIncomeGrowth": result.netIncomeGrowth,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
+                    "Sector": result.sector
+                } 
+                for result in results]
+        
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        })
 
 @StockIdeaRouter.get("/stock/Search")
 async def SearchSymbols(symbol: str):
@@ -989,12 +1608,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -1096,12 +1715,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -1203,12 +1822,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -1310,12 +1929,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -1417,12 +2036,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
