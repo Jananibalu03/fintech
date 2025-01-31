@@ -90,7 +90,7 @@ async def Volatility(
                 "SMA50": result.priceAvg50,
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                "DividendYieldTTM":result.dividendYielTTM, 
                 "RSI": result.rsi,
                 "Sector": result.sector
             } 
@@ -127,7 +127,7 @@ async def Volatility(
                     "SMA50": result.priceAvg50,
                     "SMA200": result.priceAvg200,
                     "Beta":result.beta,
-                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "DividendYieldTTM": result.dividendYielTTM, 
                     "RSI": result.rsi,
                     "Sector": result.sector
                 } 
@@ -188,7 +188,7 @@ async def YearHigh(
             "SMA200": result.priceAvg200,
             "Beta":result.beta,
             "RSI": result.rsi,
-            "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+            "DividendYieldTTM": result.dividendYielTTM, 
             "Sector": result.sector
             } 
             for result in results]
@@ -224,7 +224,7 @@ async def YearHigh(
                     "SMA200": result.priceAvg200,
                     "Beta":result.beta,
                     "RSI": result.rsi,
-                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "DividendYieldTTM":result.dividendYielTTM, 
                     "Sector": result.sector
                 } 
                 for result in results]
@@ -278,7 +278,7 @@ async def YearLow(
                 "SMA200": result.priceAvg200,
                 "Beta":result.beta,
                 "RSI": result.rsi,
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                "DividendYieldTTM": result.dividendYielTTM, 
                 "Sector": result.sector
               } 
               for result in results]
@@ -316,7 +316,7 @@ async def YearLow(
                     "SMA200": result.priceAvg200,
                     "Beta":result.beta,
                     "RSI": result.rsi,
-                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "DividendYieldTTM": result.dividendYielTTM, 
                     "Sector": result.sector
                 } 
                 for result in results]
@@ -767,7 +767,7 @@ async def HighRisk_Reward(
                 "EarningGrowthTTM": result.priceEarningsRatioTTM, 
                 "DebttoEquityTTM": result.debtEquityRatioTTM, 
                 "RisktoRewardRatioTTM": "pending", 
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                "DividendYieldTTM": result.dividendYielTTM, 
                 "Sector": result.sector
               } 
               for result in results]
@@ -803,7 +803,7 @@ async def HighRisk_Reward(
                     "EarningGrowthTTM": result.priceEarningsRatioTTM, 
                     "DebttoEquityTTM": result.debtEquityRatioTTM, 
                     "RisktoRewardRatioTTM": "pending", 
-                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM), 
+                    "DividendYieldTTM": result.dividendYielTTM, 
                     "Sector": result.sector
                 } 
                 for result in results]
@@ -1368,7 +1368,7 @@ async def TopPerformance(
                 "RSI": result.rsi,
                 "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                 "ProfitMarginsTTM": result.netProfitMarginTTM,
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
+                "DividendYieldTTM": result.dividendYielTTM,
                 "RevenueGrowthTTM": result.revenueGrowth,
                 "Sector": result.sector
               } 
@@ -1413,7 +1413,7 @@ async def TopPerformance(
                     "RSI": result.rsi,
                     "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
                     "ProfitMarginsTTM": result.netProfitMarginTTM,
-                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
+                    "DividendYieldTTM": result.dividendYielTTM,
                     "RevenueGrowthTTM": result.revenueGrowth,
                     "Sector": result.sector
                 } 
@@ -1471,7 +1471,7 @@ async def HighDividendYield(
                 "PERatio": result.pe,
                 "EPS": result.eps,      
                 "PayoutRatioTTM": result.payoutRatioTTM,
-                "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
+                "DividendYieldTTM": result.dividendYielTTM,
                 "DividendPerShareTTM": result.dividendPerShareTTM,
                 "RevenueGrowthTTM": result.revenueGrowth,
                 "NetIncomeGrowth": result.netIncomeGrowth,
@@ -1511,7 +1511,7 @@ async def HighDividendYield(
                     "PERatio": result.pe,
                     "EPS": result.eps,      
                     "PayoutRatioTTM": result.payoutRatioTTM,
-                    "DividendYieldTTM": RoundTheValue(result.dividendYielTTM),
+                    "DividendYieldTTM": result.dividendYielTTM,
                     "DividendPerShareTTM": result.dividendPerShareTTM,
                     "RevenueGrowthTTM": result.revenueGrowth,
                     "NetIncomeGrowth": result.netIncomeGrowth,
