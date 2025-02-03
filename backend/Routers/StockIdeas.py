@@ -11,6 +11,7 @@ import os
 import pandas as pd
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import func
+from sqlalchemy import cast, Float
 
 StockIdeaRouter = APIRouter()
 
@@ -61,7 +62,7 @@ async def Volatility(
                             outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
 
-    # query = query.filter(StockInfo.price > 500.00)
+    # query = query.filter(StockInfo.price > 100.00)
 
 
     if Search:
@@ -69,30 +70,34 @@ async def Volatility(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-                
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
 
         results = query.all()
+        if not results:  # Check if results is empty
+            return JSONResponse({
+                "message": "No data found",
+            }, status_code=404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "DividendYieldTTM":result.dividendYielTTM, 
-                "RSI": result.rsi,
-                "Sector": result.sector
+                "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                "Name": result.Cname if result.Cname is not None else None,
+                "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                "1D": result.one_day if result.one_day is not None else None,
+                "1M": result.one_month if result.one_month is not None else None,
+                "1Y": result.one_year if result.one_year is not None else None,
+                "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                "MarketCap": format_large_number(result.marketCap) if result.marketCap  is not None else None,
+                "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                "Beta":result.beta if result.beta is not None else None,
+                "DividendYieldTTM":result.dividendYielTTM if result.dividendYielTTM is not None else None, 
+                "RSI": result.rsi if result.rsi is not None else None,
+                "Sector": result.sector if result.sector is not None else None
             } 
             for result in results]
         
@@ -104,7 +109,7 @@ async def Volatility(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
+            },status_code = 200)
     
     else:
 
@@ -114,22 +119,22 @@ async def Volatility(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "DividendYieldTTM": result.dividendYielTTM, 
-                    "RSI": result.rsi,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol  is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta":result.beta if result.beta is not None else None,
+                    "DividendYieldTTM":result.dividendYielTTM if result.dividendYielTTM is not None else None, 
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
         
@@ -138,10 +143,8 @@ async def Volatility(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     
-
-
 @StockIdeaRouter.get("/stock/52weekshigh")
 async def YearHigh(
     Search: Optional[str] = Query(None),
@@ -158,39 +161,45 @@ async def YearHigh(
                             outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol)
-
-
+                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+    
+    # threshold = 0.95
+    # query = query.filter(StockInfo.price >= StockInfo.yearHigh * threshold)
+ 
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
                 CompanyProfile.sector.ilike(f"%{Search}%")  
-
             )
         )
 
         results = query.all()
+        if not results:  
+            return JSONResponse({
+                "message": "No data found"
+            }, status_code=404)
+        
         result =[{ 
-            "Symbol": result.Csymbol,
-            "Name": result.Cname,
-            "Price": f"{round(result.price,2)} USD",
-            "Change": f"{result.changesPercentage}%",
-            "1D": result.one_day,
-            "1M": result.one_month,
-            "1Y": result.one_year,
-            "Volume": format_large_number(result.volume),
-            "MarketCap": format_large_number(result.marketCap),
-            "52WeeksHigh": result.yearHigh,
-            "52WeeksLow": result.yearLow,
-            "SMA50": result.priceAvg50,
-            "SMA200": result.priceAvg200,
-            "Beta":result.beta,
-            "RSI": result.rsi,
-            "DividendYieldTTM": result.dividendYielTTM, 
-            "Sector": result.sector
-            } 
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta":result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None, 
+                    "Sector": result.sector if result.sector is not None else None
+                } 
             for result in results]
         
         total = query.count()
@@ -201,7 +210,7 @@ async def YearHigh(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
+            },status_code=200)
     else:
         
         total = query.count()
@@ -209,23 +218,23 @@ async def YearHigh(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "RSI": result.rsi,
-                    "DividendYieldTTM":result.dividendYielTTM, 
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta":result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi  is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None, 
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
         return JSONResponse({
@@ -233,7 +242,7 @@ async def YearHigh(
             "total_pages": total_pages,
             "total_records": total,
             "current_page": page
-        })
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/52weekslow")
 async def YearLow(
@@ -250,37 +259,43 @@ async def YearLow(
                             outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+    # threshold = 1.05
+    # query = query.filter(StockInfo.price <= StockInfo.yearLow * threshold)
 
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
         results = query.all()
+        if not results:
+            return JSONResponse({
+                "message": "No data found"
+            }, status_code=404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "Marketap": format_large_number(result.marketCap),
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "RSI": result.rsi,
-                "DividendYieldTTM": result.dividendYielTTM, 
-                "Sector": result.sector
-              } 
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "Marketap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta":result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None, 
+                    "Sector": result.sector if result.sector is not None else None
+                } 
               for result in results]
         
         total = query.count()
@@ -291,7 +306,7 @@ async def YearLow(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
+            },status_code = 200)
     else:
     # query = query.filter(StockInfo.price <= StockInfo.yearLow)
         total = query.count()
@@ -301,23 +316,23 @@ async def YearLow(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "Marketap": format_large_number(result.marketCap),
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "RSI": result.rsi,
-                    "DividendYieldTTM": result.dividendYielTTM, 
-                    "Sector": result.sector
+                   "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None  else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "Marketap": format_large_number(result.marketCap) if result.marketCap is not None  else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta":result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None, 
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -326,9 +341,7 @@ async def YearLow(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
-
-
+            },status_code = 200)
 
 @StockIdeaRouter.get("/stock/undertendollar")
 async def UnderTen_Dollar(
@@ -344,37 +357,44 @@ async def UnderTen_Dollar(
                             outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
                             outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    # query = query.filter(StockInfo.price <= 10)
+    
+    # query = query.filter(StockInfo.price <= 20.0)
+
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
         results = query.all()
+        if not results:  # Check if results is empty
+            return JSONResponse({
+                "message": "No data found",
+                
+            }, status_code=404)
+            
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "RSI": result.rsi,
-                "PERatio": result.pe,
-                "EPS": result.eps,
-                "Sector": result.sector
-              } 
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None  else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None  else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta":result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
+                } 
               for result in results]
         
         total = query.count()
@@ -385,7 +405,7 @@ async def UnderTen_Dollar(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
+            },status_code = 200)
 
     else:
         
@@ -397,23 +417,23 @@ async def UnderTen_Dollar(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "RSI": result.rsi,
-                    "PERatio": result.pe,
-                    "EPS": result.eps,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta":result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -422,9 +442,7 @@ async def UnderTen_Dollar(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
-
-
+            },status_code = 200)
 
 @StockIdeaRouter.get("/stock/abovetendoller")
 async def AboveTen_Dollar(
@@ -451,25 +469,31 @@ async def AboveTen_Dollar(
             )
         )
         results = query.all()
+        if not results:  # Check if results is empty
+            return JSONResponse({
+                "message": "No data found"
+            
+            }, status_code=404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "RSI": result.rsi,
-                "PERatio": result.pe,
-                "EPS": result.eps,
-                "Sector": result.sector
-              } 
+                    "Symbol": result.Csymbol if result.Csymbol else None,
+                    "Name": result.Cname if result.Cname else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
+                } 
               for result in results]
         
         total = query.count()
@@ -480,7 +504,7 @@ async def AboveTen_Dollar(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        }, status_code = 200)
 
     else:
 
@@ -492,23 +516,23 @@ async def AboveTen_Dollar(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "RSI": result.rsi,
-                    "PERatio": result.pe,
-                    "EPS": result.eps,
-                    "Sector": result.sector
+                   "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -517,8 +541,7 @@ async def AboveTen_Dollar(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/negativebeta")
 async def NegativeBeta(
@@ -546,25 +569,30 @@ async def NegativeBeta(
             )
         )
         results = query.all()
+        if not results:  # Check if results is empty
+            return JSONResponse({
+                "message": "No data found"
+            }, status_code=404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "RSI": result.rsi,
-                "Sector": result.sector
-              } 
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
+                }
               for result in results]
         
         total = query.count()
@@ -575,7 +603,7 @@ async def NegativeBeta(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     else:
 
         total = query.count()
@@ -586,23 +614,23 @@ async def NegativeBeta(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "RSI": result.rsi,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -611,7 +639,7 @@ async def NegativeBeta(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/lowbeta")
 async def LowBeta(
@@ -633,31 +661,36 @@ async def LowBeta(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-              
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
         results = query.all()
+
+        if not results:  # Check if results is empty
+            return JSONResponse({
+                "message": "No data found"
+            }, status_code=404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "RSI": result.rsi,
-                "Sector": result.sector
-              } 
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "Sector": result.sector if result.sector is not None else None,
+                } 
               for result in results]
         
         total = query.count()
@@ -668,7 +701,7 @@ async def LowBeta(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     else:
         total = query.count()
         total_pages = (total + limit - 1) // limit
@@ -678,23 +711,23 @@ async def LowBeta(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "RSI": result.rsi,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "Sector": result.sector if result.sector is not None else None,
                 } 
                 for result in results]
 
@@ -704,8 +737,7 @@ async def LowBeta(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/highriskandreward")
 async def HighRisk_Reward(
@@ -745,33 +777,49 @@ async def HighRisk_Reward(
             )
         )
         results = query.all()
+
+        if not results:  # Check if results is empty
+            return JSONResponse({
+                "message": "No data found"
+            }, status_code=404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "RSI": result.rsi,
-                "PERatio": result.pe,
-                "PBRatioTTM": result.priceBookValueRatioTTM, 
-                "EarningGrowthTTM": result.priceEarningsRatioTTM, 
-                "DebttoEquityTTM": result.debtEquityRatioTTM, 
-                "RisktoRewardRatioTTM": "pending", 
-                "DividendYieldTTM": result.dividendYielTTM, 
-                "Sector": result.sector
-              } 
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "PBRatioTTM": result.priceBookValueRatioTTM if result.priceBookValueRatioTTM is not None else None,
+                    "EarningGrowthTTM": result.priceEarningsRatioTTM if result.priceEarningsRatioTTM is not None else None,
+                    "DebttoEquityTTM": result.debtEquityRatioTTM if result.debtEquityRatioTTM is not None else None,
+                    "RisktoRewardRatioTTM": "pending",  # Keeping as "pending" since it's hardcoded
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
+                } 
               for result in results]
         
+        total = query.count()
+        total_pages = (total + limit - 1) // limit
+
+        return JSONResponse({
+            "data": result,
+            "total_pages": total_pages,
+            "total_records": total,
+            "current_pages": page
+        },status_code = 200)
+    
     else:
                 
         total = query.count()
@@ -782,29 +830,29 @@ async def HighRisk_Reward(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "RSI": result.rsi,
-                    "PERatio": result.pe,
-                    "PBRatioTTM": result.priceBookValueRatioTTM, 
-                    "EarningGrowthTTM": result.priceEarningsRatioTTM, 
-                    "DebttoEquityTTM": result.debtEquityRatioTTM, 
-                    "RisktoRewardRatioTTM": "pending", 
-                    "DividendYieldTTM": result.dividendYielTTM, 
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None ,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "PBRatioTTM": result.priceBookValueRatioTTM if result.priceBookValueRatioTTM is not None else None,
+                    "EarningGrowthTTM": result.priceEarningsRatioTTM if result.priceEarningsRatioTTM is not None else None,
+                    "DebttoEquityTTM": result.debtEquityRatioTTM if result.debtEquityRatioTTM is not None else None,
+                    "RisktoRewardRatioTTM": "pending",  # Keeping as "pending" since it's hardcoded
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -814,9 +862,7 @@ async def HighRisk_Reward(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/debtfreestocks")
 async def DebtFree_Stocks(
@@ -847,23 +893,26 @@ async def DebtFree_Stocks(
         )
         results = query.all()
         
+        if not results:
+            return JSONResponse({"message": "data not found"},status_code=404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "1DVolatility": result.onedayvolatility,
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "Beta":result.beta,
-                "PERatio": result.pe,
-                "CurrentRatioTTM": result.currentRatioTTM, 
-                "QuickRatioTTM": result.quickRatioTTM,
-                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": result.netProfitMarginTTM,
-                "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": result.revenueGrowth,
-                "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "CurrentRatioTTM": result.currentRatioTTM if result.currentRatioTTM is not None else None,
+                    "QuickRatioTTM": result.quickRatioTTM if result.quickRatioTTM is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
               } 
               for result in results]
         
@@ -875,7 +924,7 @@ async def DebtFree_Stocks(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     else:
         total = query.count()
         total_pages = (total + limit - 1) // limit
@@ -885,22 +934,22 @@ async def DebtFree_Stocks(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "Beta":result.beta,
-                    "PERatio": result.pe,
-                    "CurrentRatioTTM": result.currentRatioTTM, 
-                    "QuickRatioTTM": result.quickRatioTTM,
-                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                    "ProfitMarginsTTM": result.netProfitMarginTTM,
-                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                    "RevenueGrowthTTM": result.revenueGrowth,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "CurrentRatioTTM": result.currentRatioTTM if result.currentRatioTTM is not None else None,
+                    "QuickRatioTTM": result.quickRatioTTM if result.quickRatioTTM is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -909,8 +958,7 @@ async def DebtFree_Stocks(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/dividend")
 async def Dividend(
@@ -928,9 +976,7 @@ async def Dividend(
                             outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    
-    
-    
+
     if Search:
         query = query.filter(
             or_(
@@ -942,25 +988,26 @@ async def Dividend(
             )
         )
         results = query.all()
-
+        if not results:
+            return JSONResponse({"message": "data not found"},status_code = 404)
         result =[{ 
-            "Symbol": result.Csymbol,
-            "Name": result.Cname,
-            "Price": f"{round(result.price,2)} USD",
-            "Change": f"{result.changesPercentage}%",
-            "1DVolatility": result.onedayvolatility,
-            "Volume": format_large_number(result.volume),
-            "MarketCap": format_large_number(result.marketCap),
-            "DividendYieldTTM": result.dividendYielTTM,
-            "EPS": result.eps,
-            "Beta":result.beta,
-            "PERatio": result.pe,
-            "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-            "ProfitMarginsTTM": result.netProfitMarginTTM,
-            "DividendPayoutRatioTTM": result.payoutRatioTTM,
-            "RevenueGrowthTTM": result.revenueGrowth,
-            "Sector": result.sector
-            } 
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
+                } 
             for result in results]
         
         total = query.count()
@@ -971,7 +1018,7 @@ async def Dividend(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     
     else:
 
@@ -983,22 +1030,22 @@ async def Dividend(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "1DVolatility": result.onedayvolatility,
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "DividendYieldTTM": result.dividendYielTTM,
-                    "EPS": result.eps,
-                    "Beta":result.beta,
-                    "PERatio": result.pe,
-                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                    "ProfitMarginsTTM": result.netProfitMarginTTM,
-                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                    "RevenueGrowthTTM": result.revenueGrowth,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -1007,9 +1054,7 @@ async def Dividend(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/lowperatio")
 async def LowPERatio(
@@ -1028,9 +1073,7 @@ async def LowPERatio(
                             outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
                             outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    
-    
-    
+
     if Search:
         query = query.filter(
             or_(
@@ -1043,23 +1086,25 @@ async def LowPERatio(
         )
         results = query.all()
 
+        if not results:
+            return JSONResponse({"message": "data not found"},status_code = 404)
+            
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "Beta":result.beta,
-                "PERatio": result.pe,
-                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM":  result.netProfitMarginTTM,
-                "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                "RevenueGrowthTTM": result.revenueGrowth,
-                "DebtToEquityRatioTTM": result.debtEquityRatioTTM,
-                "PriceToBookRatioTTM": result.priceToBookRatioTTM,
-                # "ProfitMarginTTM": result.netProfitMarginTTM,
-                "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "DebtToEquityRatioTTM": result.debtEquityRatioTTM if result.debtEquityRatioTTM is not None else None,
+                    "PriceToBookRatioTTM": result.priceToBookRatioTTM if result.priceToBookRatioTTM is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
               } 
               for result in results]
         
@@ -1071,7 +1116,7 @@ async def LowPERatio(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     else:
         total = query.count()
         total_pages = (total + limit - 1) // limit
@@ -1080,22 +1125,21 @@ async def LowPERatio(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "Beta":result.beta,
-                    "PERatio": result.pe,
-                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                    "ProfitMarginsTTM":  result.netProfitMarginTTM,
-                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                    "RevenueGrowthTTM": result.revenueGrowth,
-                    "DebtToEquityRatioTTM": result.debtEquityRatioTTM,
-                    "PriceToBookRatioTTM": result.priceToBookRatioTTM,
-                    # "ProfitMarginTTM": result.netProfitMarginTTM,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "DebtToEquityRatioTTM": result.debtEquityRatioTTM if result.debtEquityRatioTTM is not None else None,
+                    "PriceToBookRatioTTM": result.priceToBookRatioTTM if result.priceToBookRatioTTM is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -1105,8 +1149,7 @@ async def LowPERatio(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/todaytopgain")
 async def TodayTopGain(
@@ -1131,34 +1174,36 @@ async def TodayTopGain(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
         results = query.all()
 
+        if not results:
+            return JSONResponse({"message": "data not found"},status_code = 404)
+        
         result =[{ 
-            "Symbol": result.Csymbol,
-            "Name": result.Cname,
-            "Price": f"{round(result.price,2)} USD",
-            "Change": f"{result.changesPercentage}%",
-            "Volume": format_large_number(result.volume),
-            "MarketCap": format_large_number(result.marketCap),
-            "DayHigh": result.dayHigh,
-            "DayLow": result.dayLow,
-            "52WeeksHigh": result.yearHigh,
-            "52WeeksLow": result.yearLow,
-            "SMA50": result.priceAvg50,
-            "SMA200": result.priceAvg200,
-            "Beta":result.beta,
-            "PERatio": result.pe,
-            "RSI": result.rsi,
-            "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-            "ProfitMarginsTTM": result.netProfitMarginTTM,
-            "DividendPayoutRatioTTM": result.payoutRatioTTM,
-            "RevenueGrowthTTM": result.revenueGrowth,
-            "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DayHigh": result.dayHigh if result.dayHigh is not None else None,
+                    "DayLow": result.dayLow if result.dayLow is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
             } 
             for result in results]
         
@@ -1170,7 +1215,7 @@ async def TodayTopGain(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     else: 
         total = query.count()
         total_pages = (total + limit - 1) // limit
@@ -1180,26 +1225,26 @@ async def TodayTopGain(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "DayHigh": result.dayHigh,
-                    "DayLow": result.dayLow,
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "PERatio": result.pe,
-                    "RSI": result.rsi,
-                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                    "ProfitMarginsTTM": result.netProfitMarginTTM,
-                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                    "RevenueGrowthTTM": result.revenueGrowth,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DayHigh": result.dayHigh if result.dayHigh is not None else None,
+                    "DayLow": result.dayLow if result.dayLow is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -1208,8 +1253,7 @@ async def TodayTopGain(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/todaytoploss")
 async def TodayTopLoss(
@@ -1228,41 +1272,43 @@ async def TodayTopLoss(
                             outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
                             outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
                             outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    
-    
-    
+
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-            
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
         results = query.all()
+
+        if not results:
+            return JSONResponse({"message": "data not found"},status_code = 404)
+        
         result =[{ 
-            "Symbol": result.Csymbol,
-            "Name": result.Cname,
-            "Price": f"{round(result.price,2)} USD",
-            "Change": f"{result.changesPercentage}%",
-            "Volume": format_large_number(result.volume),
-            "MarketCap": format_large_number(result.marketCap),
-            "DayHigh": result.dayHigh,
-            "DayLow": result.dayLow,
-            "52WeeksHigh": result.yearHigh,
-            "52WeeksLow": result.yearLow,
-            "SMA50": result.priceAvg50,
-            "SMA200": result.priceAvg200,
-            "Beta":result.beta,
-            "PERatio": result.pe,
-            "RSI": result.rsi,
-            "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-            "ProfitMarginsTTM": result.netProfitMarginTTM,
-            "DividendPayoutRatioTTM": result.payoutRatioTTM,
-            "RevenueGrowthTTM": result.revenueGrowth,
-            "Sector": result.sector
+                    
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DayHigh": result.dayHigh if result.dayHigh is not None else None,
+                    "DayLow": result.dayLow if result.dayLow is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
             } 
             for result in results]
         
@@ -1274,7 +1320,7 @@ async def TodayTopLoss(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
+            },status_code = 200)
     else:
         total = query.count()
         total_pages = (total + limit - 1) // limit
@@ -1284,26 +1330,26 @@ async def TodayTopLoss(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "DayHigh": result.dayHigh,
-                    "DayLow": result.dayLow,
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "PERatio": result.pe,
-                    "RSI": result.rsi,
-                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                    "ProfitMarginsTTM": result.netProfitMarginTTM,
-                    "DividendPayoutRatioTTM": result.payoutRatioTTM,
-                    "RevenueGrowthTTM": result.revenueGrowth,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DayHigh": result.dayHigh if result.dayHigh is not None else None,
+                    "DayLow": result.dayLow if result.dayLow is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendPayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
 
@@ -1312,9 +1358,7 @@ async def TodayTopLoss(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
-
-
+            },status_code = 200)
 
 @StockIdeaRouter.get("/stock/topperformance")
 async def TopPerformance(
@@ -1339,38 +1383,40 @@ async def TopPerformance(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-              
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
         results = query.all()
-
+        if not results:
+            return JSONResponse({"message": "data not found"},status_code = 404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "DayHigh": result.dayHigh,
-                "DayLow": result.dayLow,
-                "1D": result.one_day,
-                "1M": result.one_month,
-                "1Y": result.one_year,
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "SMA50": result.priceAvg50,
-                "SMA200": result.priceAvg200,
-                "Beta":result.beta,
-                "PERatio": result.pe,
-                "EPS": result.eps,
-                "RSI": result.rsi,
-                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "ProfitMarginsTTM": result.netProfitMarginTTM,
-                "DividendYieldTTM": result.dividendYielTTM,
-                "RevenueGrowthTTM": result.revenueGrowth,
-                "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price, 2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DayHigh": result.dayHigh if result.dayHigh is not None else None,
+                    "DayLow": result.dayLow if result.dayLow is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
+
               } 
               for result in results]
         
@@ -1382,7 +1428,7 @@ async def TopPerformance(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-            })
+            },status_code = 200)
 
     else:
         total = query.count()
@@ -1392,30 +1438,30 @@ async def TopPerformance(
         results = query.offset(skip).limit(limit).all()
 
         result =[{ 
-                    "Symbol": result.Csymbol,
-                    "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "DayHigh": result.dayHigh,
-                    "DayLow": result.dayLow,
-                    "1D": result.one_day,
-                    "1M": result.one_month,
-                    "1Y": result.one_year,
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "SMA50": result.priceAvg50,
-                    "SMA200": result.priceAvg200,
-                    "Beta":result.beta,
-                    "PERatio": result.pe,
-                    "EPS": result.eps,
-                    "RSI": result.rsi,
-                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                    "ProfitMarginsTTM": result.netProfitMarginTTM,
-                    "DividendYieldTTM": result.dividendYielTTM,
-                    "RevenueGrowthTTM": result.revenueGrowth,
-                    "Sector": result.sector
+                    "Symbol": result.Csymbol if result.Csymbol is not None else None,
+                    "Name": result.Cname if result.Cname is not None else None,
+                    "Price": f"{round(result.price, 2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "DayHigh": result.dayHigh if result.dayHigh is not None else None,
+                    "DayLow": result.dayLow if result.dayLow is not None else None,
+                    "1D": result.one_day if result.one_day is not None else None,
+                    "1M": result.one_month if result.one_month is not None else None,
+                    "1Y": result.one_year if result.one_year is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "SMA50": result.priceAvg50 if result.priceAvg50 is not None else None,
+                    "SMA200": result.priceAvg200 if result.priceAvg200 is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "RSI": result.rsi if result.rsi is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "ProfitMarginsTTM": result.netProfitMarginTTM if result.netProfitMarginTTM is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
         
@@ -1424,9 +1470,7 @@ async def TopPerformance(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
-
-
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/highdividendyield")
 async def HighDividendYield(
@@ -1450,33 +1494,35 @@ async def HighDividendYield(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
         )
 
         results = query.all()
-
+        
+        if not results:
+            return JSONResponse({"message": "data not found"},status_code = 404)
+        
         result =[{ 
-                "Symbol": result.Csymbol,
-                "Name": result.Cname,
-                "Price": f"{round(result.price,2)} USD",
-                "Change": f"{result.changesPercentage}%",
-                "Volume": format_large_number(result.volume),
-                "MarketCap": format_large_number(result.marketCap),
-                "52WeeksHigh": result.yearHigh,
-                "52WeeksLow": result.yearLow,
-                "Beta":result.beta,
-                "PERatio": result.pe,
-                "EPS": result.eps,      
-                "PayoutRatioTTM": result.payoutRatioTTM,
-                "DividendYieldTTM": result.dividendYielTTM,
-                "DividendPerShareTTM": result.dividendPerShareTTM,
-                "RevenueGrowthTTM": result.revenueGrowth,
-                "NetIncomeGrowth": result.netIncomeGrowth,
-                "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                "Sector": result.sector
+                    "Symbol": result.Csymbol,
+                    "Name": result.Cname,
+                    "Price": f"{round(result.price, 2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "PayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "DividendPerShareTTM": result.dividendPerShareTTM if result.dividendPerShareTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "NetIncomeGrowth": result.netIncomeGrowth if result.netIncomeGrowth is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
               } 
               for result in results]
         
@@ -1488,7 +1534,7 @@ async def HighDividendYield(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
     
     else:
         total = query.count()
@@ -1501,22 +1547,22 @@ async def HighDividendYield(
         result =[{ 
                     "Symbol": result.Csymbol,
                     "Name": result.Cname,
-                    "Price": f"{round(result.price,2)} USD",
-                    "Change": f"{result.changesPercentage}%",
-                    "Volume": format_large_number(result.volume),
-                    "MarketCap": format_large_number(result.marketCap),
-                    "52WeeksHigh": result.yearHigh,
-                    "52WeeksLow": result.yearLow,
-                    "Beta":result.beta,
-                    "PERatio": result.pe,
-                    "EPS": result.eps,      
-                    "PayoutRatioTTM": result.payoutRatioTTM,
-                    "DividendYieldTTM": result.dividendYielTTM,
-                    "DividendPerShareTTM": result.dividendPerShareTTM,
-                    "RevenueGrowthTTM": result.revenueGrowth,
-                    "NetIncomeGrowth": result.netIncomeGrowth,
-                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM,
-                    "Sector": result.sector
+                    "Price": f"{round(result.price, 2)} USD" if result.price is not None else None,
+                    "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
+                    "Volume": format_large_number(result.volume) if result.volume is not None else None,
+                    "MarketCap": format_large_number(result.marketCap) if result.marketCap is not None else None,
+                    "52WeeksHigh": result.yearHigh if result.yearHigh is not None else None,
+                    "52WeeksLow": result.yearLow if result.yearLow is not None else None,
+                    "Beta": result.beta if result.beta is not None else None,
+                    "PERatio": result.pe if result.pe is not None else None,
+                    "EPS": result.eps if result.eps is not None else None,
+                    "PayoutRatioTTM": result.payoutRatioTTM if result.payoutRatioTTM is not None else None,
+                    "DividendYieldTTM": result.dividendYielTTM if result.dividendYielTTM is not None else None,
+                    "DividendPerShareTTM": result.dividendPerShareTTM if result.dividendPerShareTTM is not None else None,
+                    "RevenueGrowthTTM": result.revenueGrowth if result.revenueGrowth is not None else None,
+                    "NetIncomeGrowth": result.netIncomeGrowth if result.netIncomeGrowth is not None else None,
+                    "FreeCashFlowTTM": result.freeCashFlowPerShareTTM if result.freeCashFlowPerShareTTM is not None else None,
+                    "Sector": result.sector if result.sector is not None else None
                 } 
                 for result in results]
         
@@ -1525,7 +1571,7 @@ async def HighDividendYield(
             "total_pages": total_pages,
             "total_records": total,
             "current_pages": page
-        })
+        },status_code = 200)
 
 @StockIdeaRouter.get("/stock/Search")
 async def SearchSymbols(symbol: str):
@@ -1539,7 +1585,7 @@ async def SearchSymbols(symbol: str):
 
     results = query.all()
     if not results:
-        return JSONResponse({"message": "Symbol Not Found!"})
+        return JSONResponse({"message": "Symbol Not Found!"},status_code=404)
     
     result =[{ 
                 "Symbol": result.Csymbol,
@@ -1617,48 +1663,48 @@ async def GraphData(symbol: str,range_type: str):
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
-                        "Symbol": data.Csymbol,
-                        "Name": data.Cname,
-                        "Price": f"{round(data.price, 2)} USD",
-                        "ChangePercentage": f"{data.changesPercentage}%",
-                        "DayLow": data.dayLow,
-                        "DayHigh": data.dayHigh,
-                        "YearHigh": data.yearHigh,
-                        "YearLow": data.yearLow,
-                        "MarketCap": data.marketCap,
-                        "SMA50": data.priceAvg50,
-                        "SMA200": data.priceAvg200,
-                        "Exchange": data.exchange,
-                        "Volume": data.volume,
-                        "AvgVolume": data.avgVolume,
-                        "OpenPrice": data.open_price,
-                        "PreviousClose": data.previousClose,
-                        "EPS": data.eps,
-                        "PE": data.pe,
-                        "OneDayVolatility": data.onedayvolatility,
-                        "Sector": data.sector,
-                        "Description": data.description,
-                        "Beta": data.beta,
-                        "1D": data.one_day,
-                        "5D": data.five_day,
-                        "1M": data.one_month,
-                        "3M": data.three_month,
-                        "6M": data.six_month,
-                        "YTD": data.ytd,
-                        "1Y": data.one_year,
-                        "DividendYieldTTM": data.dividendYielTTM,
-                        "PayoutRatioTTM": data.payoutRatioTTM,
-                        "CurrentRatioTTM": data.currentRatioTTM,
-                        "QuickRatioTTM": data.quickRatioTTM,
-                        "DebtRatioTTM": data.debtRatioTTM,
-                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
-                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
-                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
-                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
-                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
-                        "NetIncomeGrowth": data.netIncomeGrowth,
-                        "revenueGrowth": data.revenueGrowth,
-                        "RSI": data.rsi
+                        "Symbol": data.Csymbol if data.Csymbol is not None else None,
+                        "Name": data.Cname if data.Cname is not None else None,
+                        "Price": f"{round(data.price, 2)} USD" if data.price is not None else None,
+                        "ChangePercentage": f"{data.changesPercentage}%" if data.changesPercentage is not None else None,
+                        "DayLow": data.dayLow if data.dayLow is not None else None,
+                        "DayHigh": data.dayHigh if data.dayHigh is not None else None,
+                        "YearHigh": data.yearHigh if data.yearHigh is not None else None,
+                        "YearLow": data.yearLow if data.yearLow is not None else None,
+                        "MarketCap": format_large_number(data.marketCap) if data.marketCap is not None else None,
+                        "SMA50": data.priceAvg50 if data.priceAvg50 is not None else None,
+                        "SMA200": data.priceAvg200 if data.priceAvg200 is not None else None,
+                        "Exchange": data.exchange if data.exchange is not None else None,
+                        "Volume": format_large_number(data.volume) if data.volume is not None else None,
+                        "AvgVolume": format_large_number(data.avgVolume) if data.avgVolume is not None else None,
+                        "OpenPrice": data.open_price if data.open_price is not None else None,
+                        "PreviousClose": data.previousClose if data.previousClose is not None else None,
+                        "EPS": data.eps if data.eps is not None else None,
+                        "PE": data.pe if data.pe is not None else None,
+                        "OneDayVolatility": data.onedayvolatility if data.onedayvolatility is not None else None,
+                        "Sector": data.sector if data.sector is not None else None,
+                        "Description": data.description if data.description is not None else None,
+                        "Beta": data.beta if data.beta is not None else None,
+                        "1D": data.one_day if data.one_day is not None else None,
+                        "5D": data.five_day if data.five_day is not None else None,
+                        "1M": data.one_month if data.one_month is not None else None,
+                        "3M": data.three_month if data.three_month is not None else None,
+                        "6M": data.six_month if data.six_month is not None else None,
+                        "YTD": data.ytd if data.ytd is not None else None,
+                        "1Y": data.one_year if data.one_year is not None else None,
+                        "DividendYieldTTM": data.dividendYielTTM if data.dividendYielTTM is not None else None,
+                        "PayoutRatioTTM": data.payoutRatioTTM if data.payoutRatioTTM is not None else None,
+                        "CurrentRatioTTM": data.currentRatioTTM if data.currentRatioTTM is not None else None,
+                        "QuickRatioTTM": data.quickRatioTTM if data.quickRatioTTM is not None else None,
+                        "DebtRatioTTM": data.debtRatioTTM if data.debtRatioTTM is not None else None,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM if data.debtEquityRatioTTM is not None else None,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM if data.freeCashFlowPerShareTTM is not None else None,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM if data.priceToBookRatioTTM is not None else None,
+                        "ProfitMarginsTTM": data.netProfitMarginTTM if data.netProfitMarginTTM is not None else None,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM if data.priceEarningsRatioTTM is not None else None,
+                        "NetIncomeGrowth": data.netIncomeGrowth if data.netIncomeGrowth is not None else None,
+                        "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
+                        "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
     
@@ -1724,48 +1770,48 @@ async def GraphData(symbol: str,range_type: str):
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
-                        "Symbol": data.Csymbol,
-                        "Name": data.Cname,
-                        "Price": f"{round(data.price, 2)} USD",
-                        "ChangePercentage": f"{data.changesPercentage}%",
-                        "DayLow": data.dayLow,
-                        "DayHigh": data.dayHigh,
-                        "YearHigh": data.yearHigh,
-                        "YearLow": data.yearLow,
-                        "MarketCap": data.marketCap,
-                        "SMA50": data.priceAvg50,
-                        "SMA200": data.priceAvg200,
-                        "Exchange": data.exchange,
-                        "Volume": data.volume,
-                        "AvgVolume": data.avgVolume,
-                        "OpenPrice": data.open_price,
-                        "PreviousClose": data.previousClose,
-                        "EPS": data.eps,
-                        "PE": data.pe,
-                        "OneDayVolatility": data.onedayvolatility,
-                        "Sector": data.sector,
-                        "Description": data.description,
-                        "Beta": data.beta,
-                        "1D": data.one_day,
-                        "5D": data.five_day,
-                        "1M": data.one_month,
-                        "3M": data.three_month,
-                        "6M": data.six_month,
-                        "YTD": data.ytd,
-                        "1Y": data.one_year,
-                        "DividendYieldTTM": data.dividendYielTTM,
-                        "PayoutRatioTTM": data.payoutRatioTTM,
-                        "CurrentRatioTTM": data.currentRatioTTM,
-                        "QuickRatioTTM": data.quickRatioTTM,
-                        "DebtRatioTTM": data.debtRatioTTM,
-                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
-                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
-                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
-                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
-                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
-                        "NetIncomeGrowth": data.netIncomeGrowth,
-                        "revenueGrowth": data.revenueGrowth,
-                        "RSI": data.rsi
+                        "Symbol": data.Csymbol if data.Csymbol is not None else None,
+                        "Name": data.Cname if data.Cname is not None else None,
+                        "Price": f"{round(data.price, 2)} USD" if data.price is not None else None,
+                        "ChangePercentage": f"{data.changesPercentage}%" if data.changesPercentage is not None else None,
+                        "DayLow": data.dayLow if data.dayLow is not None else None,
+                        "DayHigh": data.dayHigh if data.dayHigh is not None else None,
+                        "YearHigh": data.yearHigh if data.yearHigh is not None else None,
+                        "YearLow": data.yearLow if data.yearLow is not None else None,
+                        "MarketCap": format_large_number(data.marketCap) if data.marketCap is not None else None,
+                        "SMA50": data.priceAvg50 if data.priceAvg50 is not None else None,
+                        "SMA200": data.priceAvg200 if data.priceAvg200 is not None else None,
+                        "Exchange": data.exchange if data.exchange is not None else None,
+                        "Volume": format_large_number(data.volume) if data.volume is not None else None,
+                        "AvgVolume": format_large_number(data.avgVolume) if data.avgVolume is not None else None,
+                        "OpenPrice": data.open_price if data.open_price is not None else None,
+                        "PreviousClose": data.previousClose if data.previousClose is not None else None,
+                        "EPS": data.eps if data.eps is not None else None,
+                        "PE": data.pe if data.pe is not None else None,
+                        "OneDayVolatility": data.onedayvolatility if data.onedayvolatility is not None else None,
+                        "Sector": data.sector if data.sector is not None else None,
+                        "Description": data.description if data.description is not None else None,
+                        "Beta": data.beta if data.beta is not None else None,
+                        "1D": data.one_day if data.one_day is not None else None,
+                        "5D": data.five_day if data.five_day is not None else None,
+                        "1M": data.one_month if data.one_month is not None else None,
+                        "3M": data.three_month if data.three_month is not None else None,
+                        "6M": data.six_month if data.six_month is not None else None,
+                        "YTD": data.ytd if data.ytd is not None else None,
+                        "1Y": data.one_year if data.one_year is not None else None,
+                        "DividendYieldTTM": data.dividendYielTTM if data.dividendYielTTM is not None else None,
+                        "PayoutRatioTTM": data.payoutRatioTTM if data.payoutRatioTTM is not None else None,
+                        "CurrentRatioTTM": data.currentRatioTTM if data.currentRatioTTM is not None else None,
+                        "QuickRatioTTM": data.quickRatioTTM if data.quickRatioTTM is not None else None,
+                        "DebtRatioTTM": data.debtRatioTTM if data.debtRatioTTM is not None else None,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM if data.debtEquityRatioTTM is not None else None,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM if data.freeCashFlowPerShareTTM is not None else None,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM if data.priceToBookRatioTTM is not None else None,
+                        "ProfitMarginsTTM": data.netProfitMarginTTM if data.netProfitMarginTTM is not None else None,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM if data.priceEarningsRatioTTM is not None else None,
+                        "NetIncomeGrowth": data.netIncomeGrowth if data.netIncomeGrowth is not None else None,
+                        "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
+                        "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
     
@@ -1831,48 +1877,48 @@ async def GraphData(symbol: str,range_type: str):
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
-                        "Symbol": data.Csymbol,
-                        "Name": data.Cname,
-                        "Price": f"{round(data.price, 2)} USD",
-                        "ChangePercentage": f"{data.changesPercentage}%",
-                        "DayLow": data.dayLow,
-                        "DayHigh": data.dayHigh,
-                        "YearHigh": data.yearHigh,
-                        "YearLow": data.yearLow,
-                        "MarketCap": data.marketCap,
-                        "SMA50": data.priceAvg50,
-                        "SMA200": data.priceAvg200,
-                        "Exchange": data.exchange,
-                        "Volume": data.volume,
-                        "AvgVolume": data.avgVolume,
-                        "OpenPrice": data.open_price,
-                        "PreviousClose": data.previousClose,
-                        "EPS": data.eps,
-                        "PE": data.pe,
-                        "OneDayVolatility": data.onedayvolatility,
-                        "Sector": data.sector,
-                        "Description": data.description,
-                        "Beta": data.beta,
-                        "1D": data.one_day,
-                        "5D": data.five_day,
-                        "1M": data.one_month,
-                        "3M": data.three_month,
-                        "6M": data.six_month,
-                        "YTD": data.ytd,
-                        "1Y": data.one_year,
-                        "DividendYieldTTM": data.dividendYielTTM,
-                        "PayoutRatioTTM": data.payoutRatioTTM,
-                        "CurrentRatioTTM": data.currentRatioTTM,
-                        "QuickRatioTTM": data.quickRatioTTM,
-                        "DebtRatioTTM": data.debtRatioTTM,
-                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
-                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
-                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
-                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
-                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
-                        "NetIncomeGrowth": data.netIncomeGrowth,
-                        "revenueGrowth": data.revenueGrowth,
-                        "RSI": data.rsi
+                        "Symbol": data.Csymbol if data.Csymbol is not None else None,
+                        "Name": data.Cname if data.Cname is not None else None,
+                        "Price": f"{round(data.price, 2)} USD" if data.price is not None else None,
+                        "ChangePercentage": f"{data.changesPercentage}%" if data.changesPercentage is not None else None,
+                        "DayLow": data.dayLow if data.dayLow is not None else None,
+                        "DayHigh": data.dayHigh if data.dayHigh is not None else None,
+                        "YearHigh": data.yearHigh if data.yearHigh is not None else None,
+                        "YearLow": data.yearLow if data.yearLow is not None else None,
+                        "MarketCap": format_large_number(data.marketCap) if data.marketCap is not None else None,
+                        "SMA50": data.priceAvg50 if data.priceAvg50 is not None else None,
+                        "SMA200": data.priceAvg200 if data.priceAvg200 is not None else None,
+                        "Exchange": data.exchange if data.exchange is not None else None,
+                        "Volume": format_large_number(data.volume) if data.volume is not None else None,
+                        "AvgVolume": format_large_number(data.avgVolume) if data.avgVolume is not None else None,
+                        "OpenPrice": data.open_price if data.open_price is not None else None,
+                        "PreviousClose": data.previousClose if data.previousClose is not None else None,
+                        "EPS": data.eps if data.eps is not None else None,
+                        "PE": data.pe if data.pe is not None else None,
+                        "OneDayVolatility": data.onedayvolatility if data.onedayvolatility is not None else None,
+                        "Sector": data.sector if data.sector is not None else None,
+                        "Description": data.description if data.description is not None else None,
+                        "Beta": data.beta if data.beta is not None else None,
+                        "1D": data.one_day if data.one_day is not None else None,
+                        "5D": data.five_day if data.five_day is not None else None,
+                        "1M": data.one_month if data.one_month is not None else None,
+                        "3M": data.three_month if data.three_month is not None else None,
+                        "6M": data.six_month if data.six_month is not None else None,
+                        "YTD": data.ytd if data.ytd is not None else None,
+                        "1Y": data.one_year if data.one_year is not None else None,
+                        "DividendYieldTTM": data.dividendYielTTM if data.dividendYielTTM is not None else None,
+                        "PayoutRatioTTM": data.payoutRatioTTM if data.payoutRatioTTM is not None else None,
+                        "CurrentRatioTTM": data.currentRatioTTM if data.currentRatioTTM is not None else None,
+                        "QuickRatioTTM": data.quickRatioTTM if data.quickRatioTTM is not None else None,
+                        "DebtRatioTTM": data.debtRatioTTM if data.debtRatioTTM is not None else None,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM if data.debtEquityRatioTTM is not None else None,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM if data.freeCashFlowPerShareTTM is not None else None,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM if data.priceToBookRatioTTM is not None else None,
+                        "ProfitMarginsTTM": data.netProfitMarginTTM if data.netProfitMarginTTM is not None else None,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM if data.priceEarningsRatioTTM is not None else None,
+                        "NetIncomeGrowth": data.netIncomeGrowth if data.netIncomeGrowth is not None else None,
+                        "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
+                        "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
        
@@ -1938,48 +1984,48 @@ async def GraphData(symbol: str,range_type: str):
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
-                        "Symbol": data.Csymbol,
-                        "Name": data.Cname,
-                        "Price": f"{round(data.price, 2)} USD",
-                        "ChangePercentage": f"{data.changesPercentage}%",
-                        "DayLow": data.dayLow,
-                        "DayHigh": data.dayHigh,
-                        "YearHigh": data.yearHigh,
-                        "YearLow": data.yearLow,
-                        "MarketCap": data.marketCap,
-                        "SMA50": data.priceAvg50,
-                        "SMA200": data.priceAvg200,
-                        "Exchange": data.exchange,
-                        "Volume": data.volume,
-                        "AvgVolume": data.avgVolume,
-                        "OpenPrice": data.open_price,
-                        "PreviousClose": data.previousClose,
-                        "EPS": data.eps,
-                        "PE": data.pe,
-                        "OneDayVolatility": data.onedayvolatility,
-                        "Sector": data.sector,
-                        "Description": data.description,
-                        "Beta": data.beta,
-                        "1D": data.one_day,
-                        "5D": data.five_day,
-                        "1M": data.one_month,
-                        "3M": data.three_month,
-                        "6M": data.six_month,
-                        "YTD": data.ytd,
-                        "1Y": data.one_year,
-                        "DividendYieldTTM": data.dividendYielTTM,
-                        "PayoutRatioTTM": data.payoutRatioTTM,
-                        "CurrentRatioTTM": data.currentRatioTTM,
-                        "QuickRatioTTM": data.quickRatioTTM,
-                        "DebtRatioTTM": data.debtRatioTTM,
-                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
-                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
-                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
-                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
-                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
-                        "NetIncomeGrowth": data.netIncomeGrowth,
-                        "revenueGrowth": data.revenueGrowth,
-                        "RSI": data.rsi
+                        "Symbol": data.Csymbol if data.Csymbol is not None else None,
+                        "Name": data.Cname if data.Cname is not None else None,
+                        "Price": f"{round(data.price, 2)} USD" if data.price is not None else None,
+                        "ChangePercentage": f"{data.changesPercentage}%" if data.changesPercentage is not None else None,
+                        "DayLow": data.dayLow if data.dayLow is not None else None,
+                        "DayHigh": data.dayHigh if data.dayHigh is not None else None,
+                        "YearHigh": data.yearHigh if data.yearHigh is not None else None,
+                        "YearLow": data.yearLow if data.yearLow is not None else None,
+                        "MarketCap": format_large_number(data.marketCap) if data.marketCap is not None else None,
+                        "SMA50": data.priceAvg50 if data.priceAvg50 is not None else None,
+                        "SMA200": data.priceAvg200 if data.priceAvg200 is not None else None,
+                        "Exchange": data.exchange if data.exchange is not None else None,
+                        "Volume": format_large_number(data.volume) if data.volume is not None else None,
+                        "AvgVolume": format_large_number(data.avgVolume) if data.avgVolume is not None else None,
+                        "OpenPrice": data.open_price if data.open_price is not None else None,
+                        "PreviousClose": data.previousClose if data.previousClose is not None else None,
+                        "EPS": data.eps if data.eps is not None else None,
+                        "PE": data.pe if data.pe is not None else None,
+                        "OneDayVolatility": data.onedayvolatility if data.onedayvolatility is not None else None,
+                        "Sector": data.sector if data.sector is not None else None,
+                        "Description": data.description if data.description is not None else None,
+                        "Beta": data.beta if data.beta is not None else None,
+                        "1D": data.one_day if data.one_day is not None else None,
+                        "5D": data.five_day if data.five_day is not None else None,
+                        "1M": data.one_month if data.one_month is not None else None,
+                        "3M": data.three_month if data.three_month is not None else None,
+                        "6M": data.six_month if data.six_month is not None else None,
+                        "YTD": data.ytd if data.ytd is not None else None,
+                        "1Y": data.one_year if data.one_year is not None else None,
+                        "DividendYieldTTM": data.dividendYielTTM if data.dividendYielTTM is not None else None,
+                        "PayoutRatioTTM": data.payoutRatioTTM if data.payoutRatioTTM is not None else None,
+                        "CurrentRatioTTM": data.currentRatioTTM if data.currentRatioTTM is not None else None,
+                        "QuickRatioTTM": data.quickRatioTTM if data.quickRatioTTM is not None else None,
+                        "DebtRatioTTM": data.debtRatioTTM if data.debtRatioTTM is not None else None,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM if data.debtEquityRatioTTM is not None else None,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM if data.freeCashFlowPerShareTTM is not None else None,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM if data.priceToBookRatioTTM is not None else None,
+                        "ProfitMarginsTTM": data.netProfitMarginTTM if data.netProfitMarginTTM is not None else None,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM if data.priceEarningsRatioTTM is not None else None,
+                        "NetIncomeGrowth": data.netIncomeGrowth if data.netIncomeGrowth is not None else None,
+                        "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
+                        "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
     
@@ -2045,47 +2091,147 @@ async def GraphData(symbol: str,range_type: str):
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
-                        "Symbol": data.Csymbol,
-                        "Name": data.Cname,
-                        "Price": f"{round(data.price, 2)} USD",
-                        "ChangePercentage": f"{data.changesPercentage}%",
-                        "DayLow": data.dayLow,
-                        "DayHigh": data.dayHigh,
-                        "YearHigh": data.yearHigh,
-                        "YearLow": data.yearLow,
-                        "MarketCap": data.marketCap,
-                        "SMA50": data.priceAvg50,
-                        "SMA200": data.priceAvg200,
-                        "Exchange": data.exchange,
-                        "Volume": data.volume,
-                        "AvgVolume": data.avgVolume,
-                        "OpenPrice": data.open_price,
-                        "PreviousClose": data.previousClose,
-                        "EPS": data.eps,
-                        "PE": data.pe,
-                        "OneDayVolatility": data.onedayvolatility,
-                        "Sector": data.sector,
-                        "Description": data.description,
-                        "Beta": data.beta,
-                        "1D": data.one_day,
-                        "5D": data.five_day,
-                        "1M": data.one_month,
-                        "3M": data.three_month,
-                        "6M": data.six_month,
-                        "YTD": data.ytd,
-                        "1Y": data.one_year,
-                        "DividendYieldTTM": data.dividendYielTTM,
-                        "PayoutRatioTTM": data.payoutRatioTTM,
-                        "CurrentRatioTTM": data.currentRatioTTM,
-                        "QuickRatioTTM": data.quickRatioTTM,
-                        "DebtRatioTTM": data.debtRatioTTM,
-                        "DebtEquityRatioTTM": data.debtEquityRatioTTM,
-                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM,
-                        "PriceToBookRatioTTM": data.priceToBookRatioTTM,
-                        "ProfitMarginsTTM":  data.netProfitMarginTTM,
-                        "EarningGrowthTTM": data.priceEarningsRatioTTM, 
-                        "NetIncomeGrowth": data.netIncomeGrowth,
-                        "revenueGrowth": data.revenueGrowth,
-                        "RSI": data.rsi
+                         "Symbol": data.Csymbol if data.Csymbol is not None else None,
+                        "Name": data.Cname if data.Cname is not None else None,
+                        "Price": f"{round(data.price, 2)} USD" if data.price is not None else None,
+                        "ChangePercentage": f"{data.changesPercentage}%" if data.changesPercentage is not None else None,
+                        "DayLow": data.dayLow if data.dayLow is not None else None,
+                        "DayHigh": data.dayHigh if data.dayHigh is not None else None,
+                        "YearHigh": data.yearHigh if data.yearHigh is not None else None,
+                        "YearLow": data.yearLow if data.yearLow is not None else None,
+                        "MarketCap": format_large_number(data.marketCap) if data.marketCap is not None else None,
+                        "SMA50": data.priceAvg50 if data.priceAvg50 is not None else None,
+                        "SMA200": data.priceAvg200 if data.priceAvg200 is not None else None,
+                        "Exchange": data.exchange if data.exchange is not None else None,
+                        "Volume": format_large_number(data.volume) if data.volume is not None else None,
+                        "AvgVolume": format_large_number(data.avgVolume) if data.avgVolume is not None else None,
+                        "OpenPrice": data.open_price if data.open_price is not None else None,
+                        "PreviousClose": data.previousClose if data.previousClose is not None else None,
+                        "EPS": data.eps if data.eps is not None else None,
+                        "PE": data.pe if data.pe is not None else None,
+                        "OneDayVolatility": data.onedayvolatility if data.onedayvolatility is not None else None,
+                        "Sector": data.sector if data.sector is not None else None,
+                        "Description": data.description if data.description is not None else None,
+                        "Beta": data.beta if data.beta is not None else None,
+                        "1D": data.one_day if data.one_day is not None else None,
+                        "5D": data.five_day if data.five_day is not None else None,
+                        "1M": data.one_month if data.one_month is not None else None,
+                        "3M": data.three_month if data.three_month is not None else None,
+                        "6M": data.six_month if data.six_month is not None else None,
+                        "YTD": data.ytd if data.ytd is not None else None,
+                        "1Y": data.one_year if data.one_year is not None else None,
+                        "DividendYieldTTM": data.dividendYielTTM if data.dividendYielTTM is not None else None,
+                        "PayoutRatioTTM": data.payoutRatioTTM if data.payoutRatioTTM is not None else None,
+                        "CurrentRatioTTM": data.currentRatioTTM if data.currentRatioTTM is not None else None,
+                        "QuickRatioTTM": data.quickRatioTTM if data.quickRatioTTM is not None else None,
+                        "DebtRatioTTM": data.debtRatioTTM if data.debtRatioTTM is not None else None,
+                        "DebtEquityRatioTTM": data.debtEquityRatioTTM if data.debtEquityRatioTTM is not None else None,
+                        "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM if data.freeCashFlowPerShareTTM is not None else None,
+                        "PriceToBookRatioTTM": data.priceToBookRatioTTM if data.priceToBookRatioTTM is not None else None,
+                        "ProfitMarginsTTM": data.netProfitMarginTTM if data.netProfitMarginTTM is not None else None,
+                        "EarningGrowthTTM": data.priceEarningsRatioTTM if data.priceEarningsRatioTTM is not None else None,
+                        "NetIncomeGrowth": data.netIncomeGrowth if data.netIncomeGrowth is not None else None,
+                        "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
+                        "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
+
+
+# @StockIdeaRouter.get("/gemini/chatbot")
+def ChatBot(symbol : str):
+    query = db.session.query(Symbols.Csymbol,
+                                    Symbols.Cname,
+                                    StockInfo.price,
+                                    StockInfo.changesPercentage,
+                                    StockInfo.dayLow,
+                                    StockInfo.dayHigh,
+                                    StockInfo.yearHigh,
+                                    StockInfo.yearLow,
+                                    StockInfo.marketCap,
+                                    StockInfo.priceAvg50,
+                                    StockInfo.priceAvg200,
+                                    StockInfo.exchange,
+                                    StockInfo.volume,
+                                    StockInfo.avgVolume,
+                                    StockInfo.open_price,
+                                    StockInfo.previousClose,
+                                    StockInfo.eps,
+                                    StockInfo.pe,
+                                    StockInfo.onedayvolatility,
+                                    CompanyProfile.sector,
+                                    CompanyProfile.description,
+                                    CompanyProfile.beta,
+                                    StockPerformance.one_day,
+                                    StockPerformance.five_day,
+                                    StockPerformance.one_month,
+                                    StockPerformance.three_month,
+                                    StockPerformance.six_month,
+                                    StockPerformance.ytd,
+                                    StockPerformance.one_year,
+                                    FinancialMetrics.dividendYielTTM,
+                                    FinancialMetrics.payoutRatioTTM,
+                                    FinancialMetrics.currentRatioTTM,
+                                    FinancialMetrics.quickRatioTTM,
+                                    FinancialMetrics.debtRatioTTM,
+                                    FinancialMetrics.debtEquityRatioTTM,
+                                    FinancialMetrics.freeCashFlowPerShareTTM,
+                                    FinancialMetrics.priceToBookRatioTTM,
+                                    FinancialMetrics.netProfitMarginTTM,
+                                    FinancialMetrics.priceEarningsRatioTTM,
+                                    FinancialGrowth.revenueGrowth,
+                                    FinancialGrowth.netIncomeGrowth,
+                                    FinancialGrowth.revenueGrowth,
+                                    TechnicalIndicator.rsi                                    
+                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
+
+    result = [{
+                "Symbol": data.Csymbol if data.Csymbol is not None else None,
+                "Name": data.Cname if data.Cname is not None else None,
+                "Price": f"{round(data.price, 2)} USD" if data.price is not None else None,
+                "ChangePercentage": f"{data.changesPercentage}%" if data.changesPercentage is not None else None,
+                "DayLow": data.dayLow if data.dayLow is not None else None,
+                "DayHigh": data.dayHigh if data.dayHigh is not None else None,
+                "YearHigh": data.yearHigh if data.yearHigh is not None else None,
+                "YearLow": data.yearLow if data.yearLow is not None else None,
+                "MarketCap": format_large_number(data.marketCap) if data.marketCap is not None else None,
+                "SMA50": data.priceAvg50 if data.priceAvg50 is not None else None,
+                "SMA200": data.priceAvg200 if data.priceAvg200 is not None else None,
+                "Exchange": data.exchange if data.exchange is not None else None,
+                "Volume": format_large_number(data.volume) if data.volume is not None else None,
+                "AvgVolume": format_large_number(data.avgVolume) if data.avgVolume is not None else None,
+                "OpenPrice": data.open_price if data.open_price is not None else None,
+                "PreviousClose": data.previousClose if data.previousClose is not None else None,
+                "EPS": data.eps if data.eps is not None else None,
+                "PE": data.pe if data.pe is not None else None,
+                "OneDayVolatility": data.onedayvolatility if data.onedayvolatility is not None else None,
+                "Sector": data.sector if data.sector is not None else None,
+                "Description": data.description if data.description is not None else None,
+                "Beta": data.beta if data.beta is not None else None,
+                "1D": data.one_day if data.one_day is not None else None,
+                "5D": data.five_day if data.five_day is not None else None,
+                "1M": data.one_month if data.one_month is not None else None,
+                "3M": data.three_month if data.three_month is not None else None,
+                "6M": data.six_month if data.six_month is not None else None,
+                "YTD": data.ytd if data.ytd is not None else None,
+                "1Y": data.one_year if data.one_year is not None else None,
+                "DividendYieldTTM": data.dividendYielTTM if data.dividendYielTTM is not None else None,
+                "PayoutRatioTTM": data.payoutRatioTTM if data.payoutRatioTTM is not None else None,
+                "CurrentRatioTTM": data.currentRatioTTM if data.currentRatioTTM is not None else None,
+                "QuickRatioTTM": data.quickRatioTTM if data.quickRatioTTM is not None else None,
+                "DebtRatioTTM": data.debtRatioTTM if data.debtRatioTTM is not None else None,
+                "DebtEquityRatioTTM": data.debtEquityRatioTTM if data.debtEquityRatioTTM is not None else None,
+                "FreeCashFlowPerShareTTM": data.freeCashFlowPerShareTTM if data.freeCashFlowPerShareTTM is not None else None,
+                "PriceToBookRatioTTM": data.priceToBookRatioTTM if data.priceToBookRatioTTM is not None else None,
+                "ProfitMarginsTTM": data.netProfitMarginTTM if data.netProfitMarginTTM is not None else None,
+                "EarningGrowthTTM": data.priceEarningsRatioTTM if data.priceEarningsRatioTTM is not None else None,
+                "NetIncomeGrowth": data.netIncomeGrowth if data.netIncomeGrowth is not None else None,
+                "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
+                "RSI": data.rsi if data.rsi is not None else None
+            } for data in query]
+    return result

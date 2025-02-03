@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from alembic import command
 from alembic.config import Config
 from fastapi.middleware.cors import CORSMiddleware
+from Routers.chatbot import ChatRouter
 
 app = FastAPI()
 
@@ -37,6 +38,7 @@ Create_table()
 #routers
 app.include_router(StockRouter,prefix='/Api',tags=["StockData"])
 app.include_router(StockIdeaRouter,prefix='/api',tags=["StockIdeas"])
+app.include_router(ChatRouter,prefix='/botapi',tags=["Chatbot"])
 
 # # CORS Configuration
 app.add_middleware(

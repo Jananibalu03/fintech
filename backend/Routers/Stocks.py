@@ -33,6 +33,8 @@ Intradata_URL = "https://financialmodelingprep.com/api/v3/historical-price-full"
 
 FINANCIAL_GROWTH_URL = "https://financialmodelingprep.com/api/v3/financial-growth"
 
+StandardDeviation_URL = "https://financialmodelingprep.com/api/v3/technical_indicator/1day"
+
 @router.get("/UploadSymbols")
 async def Upload_Symbols():
     params = {
@@ -47,6 +49,8 @@ async def Upload_Symbols():
             'IBM', 'XOM', 'LMT', 'NKE', 'CL', 'T', 'PEP', 'ABBV', 'WBA', 'GE', 
             'TGT', 'AXP', 'GS', 'CVX', 'MMM', 'UNH', 'AMT', 'SPGI', 'ABT'
         ]
+
+
         with httpx.Client() as r:
             response = r.get(Symbol_Base_URL, params = params)
             data = response.json()
@@ -56,6 +60,7 @@ async def Upload_Symbols():
                     db.session.add(StockCompany)
                     db.session.commit()
                     db.session.refresh(StockCompany)
+
         return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
@@ -90,15 +95,22 @@ async def GetSymbols(
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
 
-def OneDayVolatility(day_high,day_low):
-    if day_high !=0 and day_low !=0:
-        # Calculate 1-day volatility using the high-low method
-        volatility = math.sqrt(2) * math.log(day_high / day_low)
-        volatility_percentage = volatility * 100
-        rounded_2_decimal = round(volatility_percentage, 2)
-        return  rounded_2_decimal
+def OneDayVolatility(symbol):
+    params = {
+        "type": "standardDeviation",
+        "period": 10,
+        "apikey": os.getenv("API_KEY")
+    }
+    if symbol:
+        with httpx.Client() as r:
+            res = r.get(f"{StandardDeviation_URL}/{symbol}",params=params,  timeout=30)
+            response = res.json()[0]
+            daily_volatility = response.get("standardDeviation")*100
+            return f"{round(daily_volatility,2)}%"
     else:
-        return 0
+        return None
+            
+     
 
 @router.get("/UploadStocks")
 def Upload_Stocks():
@@ -113,7 +125,7 @@ def Upload_Stocks():
             with httpx.Client() as r:
                 symbol_query = db.session.query(Symbols).all()
                 for symbol in symbol_query:
-                    response = r.get(f"{Stock_Base_URL}/{symbol.Csymbol}", params = params)
+                    response = r.get(f"{Stock_Base_URL}/{symbol.Csymbol}", params = params,  timeout=30)
                     res = response.json()
                     for data in res:
                         symbol_id = db.session.query(StockInfo).filter(StockInfo.symbol==symbol.Csymbol).first()
@@ -137,7 +149,7 @@ def Upload_Stocks():
                                                         previousClose = data.get("previousClose"),
                                                         eps  = data.get("eps"),
                                                         pe = data.get("pe"),
-                                                        onedayvolatility = OneDayVolatility(data.get("dayHigh"),data.get("dayLow")),
+                                                        onedayvolatility = OneDayVolatility(data.get('symbol')),
                                                         timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
                                                     )
                             db.session.add(SctockDetails)
@@ -163,7 +175,7 @@ def Upload_Stocks():
                             symbol_id.previousClose = data.get("previousClose", symbol_id.previousClose)
                             symbol_id.eps = data.get("eps", symbol_id.eps)
                             symbol_id.pe = data.get("pe", symbol_id.pe)
-                            symbol_id.onedayvolatility = OneDayVolatility(data.get("dayHigh"), data.get("dayLow"))
+                            symbol_id.onedayvolatility = OneDayVolatility(symbol_id.symbol)
                             symbol_id.timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
 
                             db.session.commit()
@@ -236,9 +248,7 @@ def Upload_CompanyProfile():
             with httpx.Client() as r:
                 symbol_query = db.session.query(Symbols).all()
                 for symbol in symbol_query:
-                    print(symbol)
                     response = r.get(f"{Company_Base_URL}/{symbol.Csymbol}", params = params)
-                    print(response.url)
                     res = response.json()
                     for data in res:
                         symbol_id = db.session.query(CompanyProfile).filter(CompanyProfile.symbol==symbol.Csymbol).first()
@@ -783,7 +793,7 @@ async def my_task():
     print(f"Task is running at {current_time}!")
 
 # Initialize the scheduler
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone=pytz.timezone('US/Eastern'))
 
 
 # Function to schedule the task using CronTrigger
@@ -792,7 +802,7 @@ def Myscheduler():
     trigger = CronTrigger(
         hour="9-16",    # Every 2 hours between 9 and 16 (9:30 AM, 11:30 AM, etc.)
         minute="*",    
-        day_of_week="mon-fri",  # At minute 30 (9:30, 11:30, etc.)
+        day_of_week="mon-sun",  # At minute 30 (9:30, 11:30, etc.)
         timezone="US/Eastern",
     )
 
