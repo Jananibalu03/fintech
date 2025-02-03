@@ -43,9 +43,9 @@ async def Volatility(
 #         StockInfo.symbol,
 #         func.max(StockInfo.id).label("latest_id")  # Get latest ID instead of timestamp
 #     ).group_by(StockInfo.symbol).subquery()
-#  outerjoin(
+#  join(
 #                                 latest_stockinfo, Symbols.Csymbol == latest_stockinfo.c.symbol
-#                             ).outerjoin(
+#                             ).join(
 #                                 StockInfo, and_(
 #                                     Symbols.Csymbol == StockInfo.symbol,
 #                                     StockInfo.id == latest_stockinfo.c.latest_id  # Use latest ID instead of timestamp
@@ -55,11 +55,11 @@ async def Volatility(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.onedayvolatility,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, TechnicalIndicator.rsi,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
 
     # query = query.filter(StockInfo.price > 100.00)
@@ -86,7 +86,7 @@ async def Volatility(
                 "Name": result.Cname if result.Cname is not None else None,
                 "Price": f"{round(result.price,2)} USD" if result.price is not None else None,
                 "Change": f"{result.changesPercentage}%" if result.changesPercentage is not None else None,
-                "1DVolatility": result.onedayvolatility if result.onedayvolatility is not None else None,
+                "1DVolatility": f"{round(result.onedayvolatility,2)}%" if result.onedayvolatility is not None else None,
                 "1D": result.one_day if result.one_day is not None else None,
                 "1M": result.one_month if result.one_month is not None else None,
                 "1Y": result.one_year if result.one_year is not None else None,
@@ -157,11 +157,11 @@ async def YearHigh(
     query = db.session.query(Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year, FinancialMetrics.dividendYielTTM, TechnicalIndicator.rsi).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     # threshold = 0.95
     # query = query.filter(StockInfo.price >= StockInfo.yearHigh * threshold)
@@ -254,11 +254,11 @@ async def YearLow(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     # threshold = 1.05
     # query = query.filter(StockInfo.price <= StockInfo.yearLow * threshold)
 
@@ -353,12 +353,12 @@ async def UnderTen_Dollar(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
-    # query = query.filter(StockInfo.price <= 20.0)
+    # query = query.filter(StockInfo.price <= 10.0)
 
     if Search:
         query = query.filter(
@@ -454,11 +454,11 @@ async def AboveTen_Dollar(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    # query = query.filter(StockInfo.price >= 10)
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+    # query = query.filter(StockInfo.price <= 50.0)
     if Search:
         query = query.filter(
             or_(
@@ -553,11 +553,13 @@ async def NegativeBeta(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+
     # query = query.filter(CompanyProfile.beta < 0)
+
     if Search:
         query = query.filter(
             or_(
@@ -651,11 +653,16 @@ async def LowBeta(
     query = db.session.query(CompanyProfile.image,Symbols.Csymbol,Symbols.Cname,StockInfo.price,StockInfo.onedayvolatility,StockInfo.changesPercentage,StockInfo.volume,StockInfo.marketCap,
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,TechnicalIndicator.rsi).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
-    # query = query.filter(CompanyProfile.beta < 1)
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+
+    # query = query.filter(or_(
+    #     CompanyProfile.beta <= 0,
+    #     CompanyProfile.beta < 1
+    # ))
+
     if Search:
         query = query.filter(
             or_(
@@ -750,11 +757,11 @@ async def HighRisk_Reward(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.priceBookValueRatioTTM,FinancialMetrics.debtEquityRatioTTM,\
                             FinancialMetrics.dividendYielTTM,FinancialMetrics.priceEarningsRatioTTM,TechnicalIndicator.rsi).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
     
     #  # Query for high-risk, high-reward stocks
     # query = query.filter(
@@ -875,18 +882,17 @@ async def DebtFree_Stocks(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.currentRatioTTM,FinancialMetrics.quickRatioTTM,FinancialMetrics.freeCashFlowPerShareTTM,
                             FinancialMetrics.payoutRatioTTM,FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
- 
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+    
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-               
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -971,11 +977,11 @@ async def Dividend(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200, 
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,
                             FinancialMetrics.netProfitMarginTTM,FinancialMetrics.dividendYielTTM,FinancialGrowth.revenueGrowth).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
         query = query.filter(
@@ -1068,18 +1074,17 @@ async def LowPERatio(
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,
                             FinancialMetrics.payoutRatioTTM,FinancialMetrics.debtEquityRatioTTM,FinancialMetrics.priceToBookRatioTTM,
                             FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
         query = query.filter(
             or_(
                 Symbols.Csymbol.ilike(f"%{Search}%"),
                 Symbols.Cname.ilike(f"%{Search}%"),
-
                 CompanyProfile.sector.ilike(f"%{Search}%")  
 
             )
@@ -1162,12 +1167,12 @@ async def TodayTopGain(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,
                             TechnicalIndicator.rsi, FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
         query = query.filter(
@@ -1266,12 +1271,12 @@ async def TodayTopLoss(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.payoutRatioTTM,TechnicalIndicator.rsi,
                             FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
         query = query.filter(
@@ -1371,12 +1376,12 @@ async def TopPerformance(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.freeCashFlowPerShareTTM,FinancialMetrics.dividendYielTTM,TechnicalIndicator.rsi,
                             FinancialMetrics.netProfitMarginTTM,FinancialGrowth.revenueGrowth).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
-                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
         query = query.filter(
@@ -1483,11 +1488,11 @@ async def HighDividendYield(
                             StockInfo.pe,StockInfo.eps,StockInfo.yearHigh,StockInfo.yearLow,CompanyProfile.beta,CompanyProfile.sector,StockInfo.priceAvg50,StockInfo.priceAvg200,StockInfo.dayHigh,StockInfo.dayLow,
                             StockPerformance.one_day,StockPerformance.one_month,StockPerformance.one_year,FinancialMetrics.payoutRatioTTM,FinancialMetrics.dividendYielTTM,FinancialMetrics.dividendPerShareTTM,
                             FinancialMetrics.freeCashFlowPerShareTTM,FinancialGrowth.revenueGrowth,FinancialGrowth.netIncomeGrowth).\
-                            outerjoin(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
-                            outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
-                            outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
-                            outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
-                            outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
+                            join(StockInfo,Symbols.Csymbol == StockInfo.symbol).\
+                            join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol).\
+                            join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol).\
+                            join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol).\
+                            join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol).order_by(StockInfo.price.desc())
 
     if Search:
         query = query.filter(
@@ -1601,7 +1606,7 @@ async def GraphData(symbol: str,range_type: str):
     eastern = pytz.timezone('US/Eastern')
     today = datetime.now(eastern).date()  
     
-    if range_type == "oneday":
+    if range_type == "1d":
         today = today - timedelta(days=1)
         params ={
             "from": today,
@@ -1654,12 +1659,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -1708,7 +1713,7 @@ async def GraphData(symbol: str,range_type: str):
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
     
-    elif range_type == "oneweek":
+    elif range_type == "1w":
         one_weeks = today - timedelta(days=7)
         params ={
             "from": one_weeks,
@@ -1761,12 +1766,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -1815,7 +1820,7 @@ async def GraphData(symbol: str,range_type: str):
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
     
-    elif range_type == "onemonth":
+    elif range_type == "1m":
         one_month = today - timedelta(days=30)
         params ={
             "from": one_month,
@@ -1868,12 +1873,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -1922,7 +1927,7 @@ async def GraphData(symbol: str,range_type: str):
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
        
-    elif range_type == "oneyear":
+    elif range_type == "1y":
         one_year = today - timedelta(days=365)
         params ={
             "from": one_year,
@@ -1975,12 +1980,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -2029,11 +2034,8 @@ async def GraphData(symbol: str,range_type: str):
                     } for data in query]
         return JSONResponse({"graph_data": response.json(),"full_data":result})
     
-    elif range_type == "oneyear":
-        one_year = today - timedelta(days=365)
+    elif range_type == "max":
         params ={
-            "from": one_year,
-            "to": today,
             "apikey": os.getenv("API_KEY")
         }
         URL = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}"
@@ -2082,12 +2084,12 @@ async def GraphData(symbol: str,range_type: str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
             result = [{
@@ -2182,12 +2184,12 @@ def ChatBot(symbol : str):
                                     FinancialGrowth.netIncomeGrowth,
                                     FinancialGrowth.revenueGrowth,
                                     TechnicalIndicator.rsi                                    
-                                    ).outerjoin(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
-                                    .outerjoin(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
-                                    .outerjoin(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
-                                    .outerjoin(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
-                                    .outerjoin(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
-                                    .outerjoin(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
+                                    ).join(StockInfo, Symbols.Csymbol == StockInfo.symbol) \
+                                    .join(CompanyProfile, Symbols.Csymbol == CompanyProfile.symbol) \
+                                    .join(StockPerformance, Symbols.Csymbol == StockPerformance.symbol) \
+                                    .join(FinancialMetrics, Symbols.Csymbol == FinancialMetrics.symbol) \
+                                    .join(TechnicalIndicator, Symbols.Csymbol == TechnicalIndicator.symbol) \
+                                    .join(FinancialGrowth, Symbols.Csymbol == FinancialGrowth.symbol)\
                                     .filter(Symbols.Csymbol == symbol.upper()).order_by(Symbols.id.desc())
 
     result = [{
