@@ -11,6 +11,8 @@ from Models.StocksModels import Symbols
 from fastapi_sqlalchemy import db
 from sqlalchemy import or_, and_
 import nltk
+from nltk.corpus import stopwords
+
 nltk.download('stopwords')
 
 load_dotenv()
@@ -144,14 +146,11 @@ def Bot(ChatModel: Message):
     
     matching_elements = [item for item in user_data if item in tickers]
 
-    from nltk.corpus import stopwords
 
     stop_words = set(stopwords.words('english'))
-    print(stop_words)  # Set of common stop words in English
 
     # Example: Filtering stop words from a sentence
     filtered_data = [word for word in user_data if word.lower() not in stop_words]
-    print(filtered_data)
 
     if matching_elements:
         symbol = matching_elements[0]

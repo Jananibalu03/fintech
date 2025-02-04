@@ -1865,7 +1865,7 @@ async def GraphData(symbol: str,range_type: str):
                         "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
                         "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
-        return JSONResponse({"graph_data": response.json(),"full_data":result})
+        return JSONResponse({"graph_data": response.json()['historical'],"full_data":result})
     
     elif range_type == "1m":
         one_month = today - timedelta(days=30)
@@ -2079,7 +2079,7 @@ async def GraphData(symbol: str,range_type: str):
                         "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
                         "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
-        return JSONResponse({"graph_data": response.json(),"full_data":result})
+        return JSONResponse({"graph_data": response.json()['historical'],"full_data":result})
     
     elif range_type == "max":
         params ={
@@ -2183,7 +2183,7 @@ async def GraphData(symbol: str,range_type: str):
                         "revenueGrowth": data.revenueGrowth if data.revenueGrowth is not None else None,
                         "RSI": data.rsi if data.rsi is not None else None
                     } for data in query]
-        return JSONResponse({"graph_data": response.json(),"full_data":result})
+        return JSONResponse({"graph_data": response.json()['historical'],"full_data":result})
 
 
 @StockIdeaRouter.get("/gemini/chatbot")

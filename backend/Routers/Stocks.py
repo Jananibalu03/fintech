@@ -233,7 +233,7 @@ def Upload_Stocks():
                             stock_info.timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
 
                             db.session.commit()
-                            db.session.refresh(stock_data_list)
+                            db.session.refresh(stock_info)
                 # # # Bulk insert new stock data
                 # # if stock_data_list:
                 # #     db.session.bulk_save_objects(stock_data_list)
@@ -332,7 +332,7 @@ def Upload_CompanyProfile():
                 # company_profile_list = []
 
                 for symbol in symbol_query:
-                    response = r.get(f"{Company_Base_URL}/{symbol.Csymbol}", params = params)
+                    response = r.get(f"{Company_Base_URL}/{symbol.Csymbol}", params = params,  timeout=30)
                     res = response.json()
                     for data in res:
                         symbol_id = db.session.query(CompanyProfile).filter(CompanyProfile.symbol==symbol.Csymbol).first()
@@ -442,7 +442,7 @@ def Upload_StocksPerformance():
                 # Stock_performance_list = []
 
                 for symbol in symbol_query:
-                    response = r.get(f"{Stock_Performance_URL}/{symbol.Csymbol}", params = params)
+                    response = r.get(f"{Stock_Performance_URL}/{symbol.Csymbol}", params = params,  timeout=30)
                     res = response.json()
 
                     for data in res:
@@ -548,7 +548,7 @@ def Upload_FinancialMetrics():
                 # financial_metrics_list = []
 
                 for symbol in symbol_query:
-                    response = r.get(f"{Stock_Ratio_URL}/{symbol.Csymbol}", params = params)
+                    response = r.get(f"{Stock_Ratio_URL}/{symbol.Csymbol}", params = params,  timeout=30)
                     res = response.json()
 
                     for data in res:
@@ -627,7 +627,7 @@ def Technical_Indicator():
                 # technical_indicator_list =  []
 
                 for symbol in symbol_query:
-                    response = r.get(f"{RSI_Technical_URL}/{symbol.Csymbol}", params = params)
+                    response = r.get(f"{RSI_Technical_URL}/{symbol.Csymbol}", params = params,  timeout=30)
                     res = response.json()
                     
                     if res:
@@ -685,7 +685,7 @@ def upload_financial_growth():
                 # financial_growth_list = []
 
                 for symbol in symbols:
-                    response = client.get(f"{FINANCIAL_GROWTH_URL}/{symbol.Csymbol}", params=params)
+                    response = client.get(f"{FINANCIAL_GROWTH_URL}/{symbol.Csymbol}", params=params, timeout=30)
                     res = response.json()
                     
                     if res:
@@ -736,87 +736,46 @@ def upload_financial_growth():
     except Exception as e:
         return HTTPException(status_code=403, detail=f"An Error Occurred! {e.args}")
     
-# Define the function that will be scheduled
-async def my_task():
-    # Get the current time in US Eastern Time
-    eastern_timezone = pytz.timezone('US/Eastern')
-    current_time = datetime.now(eastern_timezone)
-    print("task triggered")
-    # current_date = datetime.now(eastern_timezone).date()
-    print(f"Task is running at {current_time}!")
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
+import pytz
 
 # Initialize the scheduler
-scheduler = BackgroundScheduler(executors={"default": ThreadPoolExecutor(5)})  # Max 5 concurrent jobs
+scheduler = BackgroundScheduler(timezone=pytz.timezone('US/Eastern'))
 
+# Function to start jobs sequentially
+def job_listener(event):
+    if event.exception:
+        print(f"Job {event.job_id} failed!")
+        return
 
-# # Function to schedule the task using CronTrigger
-# from apscheduler.schedulers.background import BackgroundScheduler
-# from apscheduler.triggers.cron import CronTrigger
-# from pytz import timezone
+    job_sequence = [
+        "my_task1", "my_task2", "my_task3", "my_task4", "my_task5", "my_task6"
+    ]
 
-# scheduler = BackgroundScheduler(timezone=timezone("US/Eastern"))
+    if event.job_id in job_sequence:
+        index = job_sequence.index(event.job_id)
+        if index + 1 < len(job_sequence):
+            next_task = job_sequence[index + 1]
+            print(f"Starting next task: {next_task}")
+            scheduler.resume_job(next_task)  # Resume next job
 
 def Myscheduler():
-    trigger = CronTrigger(hour="9-16", minute="*/10", day_of_week="mon-fri")
+    # CronTrigger: Monday to Friday, every 10 or 30 minutes
+    trigger = CronTrigger(hour="9-16", minute="*/30", day_of_week="mon-fri", timezone="US/Eastern")  # Change to "*/30" for 30 minutes
 
-    scheduler.add_job(
-        Upload_Stocks,
-        trigger=trigger,
-        id='my_task1',
-        replace_existing=True,
-        max_instances=2,  # Allow 2 jobs to run in parallel
-        misfire_grace_time=60,  # If delayed by 60 sec, still run
-        coalesce=True  # Run only the latest missed instance
-    )
+    scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
-    scheduler.add_job(
-        Upload_CompanyProfile,
-        trigger=trigger,
-        id='my_task2',
-        replace_existing=True,
-        max_instances=2,
-        misfire_grace_time=60,
-        coalesce=True
-    )
-
-    scheduler.add_job(
-        Upload_StocksPerformance,
-        trigger=trigger,
-        id='my_task3',
-        replace_existing=True,
-        max_instances=3,
-        misfire_grace_time=120,  # Allow 2-minute delay
-        coalesce=True
-    )
-
-    scheduler.add_job(
-        Upload_FinancialMetrics,
-        trigger=trigger,
-        id='my_task4',
-        replace_existing=True,
-        max_instances=3,
-        misfire_grace_time=120,
-        coalesce=True
-    )
-
-    scheduler.add_job(
-        Technical_Indicator,
-        trigger=trigger,
-        id='my_task5',
-        replace_existing=True,
-        max_instances=1,  # Keep it single-threaded if critical
-        misfire_grace_time=120,
-        coalesce=True
-    )
-
-    scheduler.add_job(
-        upload_financial_growth,
-        trigger=trigger,
-        id='my_task6',
-        replace_existing=True,
-        max_instances=2,
-        misfire_grace_time=60,
-        coalesce=True
-    )
+    # Add jobs (initially paused)
+    scheduler.add_job(Upload_Stocks, trigger=trigger, id="my_task1", replace_existing=True, next_run_time=None)
+    scheduler.add_job(Upload_CompanyProfile, trigger=trigger, id="my_task2", replace_existing=True, next_run_time=None)
+    scheduler.add_job(Upload_StocksPerformance, trigger=trigger, id="my_task3", replace_existing=True, next_run_time=None)
+    scheduler.add_job(Upload_FinancialMetrics, trigger=trigger, id="my_task4", replace_existing=True, next_run_time=None)
+    scheduler.add_job(Technical_Indicator, trigger=trigger, id="my_task5", replace_existing=True, next_run_time=None)
+    scheduler.add_job(upload_financial_growth, trigger=trigger, id="my_task6", replace_existing=True, next_run_time=None)
 
     scheduler.start()
+    scheduler.resume_job("my_task1")  # Start the first job manually
+
