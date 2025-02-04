@@ -13,6 +13,9 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 import pytz
 from sqlalchemy import and_
+from collections import defaultdict
+
+from apscheduler.executors.pool import ThreadPoolExecutor
 
 load_dotenv()
 router = APIRouter()
@@ -47,20 +50,57 @@ async def Upload_Symbols():
             'TTD', 'ILMN', 'ASML', 'BMY', 'BIIB', 'WDAY', 'JNJ', 'JPM', 'XOM', 'KO', 
             'DIS', 'PG', 'CVX', 'V', 'PFE', 'HD', 'MCD', 'MRK', 'BA', 'CAT', 'VZ', 
             'IBM', 'XOM', 'LMT', 'NKE', 'CL', 'T', 'PEP', 'ABBV', 'WBA', 'GE', 
-            'TGT', 'AXP', 'GS', 'CVX', 'MMM', 'UNH', 'AMT', 'SPGI', 'ABT'
+            'TGT', 'AXP', 'GS', 'CVX', 'MMM', 'UNH', 'AMT', 'SPGI', 'ABT', 'IBM'
         ]
-
-
+        
         with httpx.Client() as r:
-            response = r.get(Symbol_Base_URL, params = params)
+            response = r.get(Symbol_Base_URL, params=params)
             data = response.json()
-            for comp in data:
-                if comp["symbol"] in tickers:
-                    StockCompany = Symbols(Csymbol = comp["symbol"], Cname = comp["name"], exchange = comp["exchangeShortName"])
-                    db.session.add(StockCompany)
-                    db.session.commit()
-                    db.session.refresh(StockCompany)
 
+
+            for comp in data:
+
+                if comp['symbol'] in tickers:
+                    default_company = Symbols(
+                        Csymbol=comp["symbol"],
+                        Cname=comp["name"],
+                        exchange=comp["exchangeShortName"]
+                    )
+                    db.session.add(default_company)
+                    db.session.commit()
+                    db.session.refresh(default_company)
+
+        exchanges = defaultdict(int)
+        exchange_name = []
+        count = 0
+        with httpx.Client() as r:
+            response = r.get(Symbol_Base_URL, params=params)
+            data = response.json()
+
+            for comp in data:
+
+                if count > 50:
+                    break
+
+                exchange_name = comp["exchangeShortName"]
+
+                # Skip if already reached the 20-symbol limit
+                if exchanges[exchange_name] >= 5:
+                    continue
+
+                # Create StockCompany object and store it for bulk insert
+                stock_companies = Symbols(
+                    Csymbol=comp["symbol"],
+                    Cname=comp["name"],
+                    exchange=exchange_name
+                )
+                db.session.add(stock_companies)
+                db.session.commit()
+                db.session.refresh(stock_companies)
+                exchanges[exchange_name] += 1
+                count+=1
+
+      
         return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
@@ -95,95 +135,126 @@ async def GetSymbols(
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
 
-def OneDayVolatility(symbol):
+def fetch_volatility_in_batch(symbols):
     params = {
         "type": "standardDeviation",
         "period": 10,
         "apikey": os.getenv("API_KEY")
     }
-    if symbol:
-        with httpx.Client() as r:
-            res = r.get(f"{StandardDeviation_URL}/{symbol}",params=params,  timeout=30)
-            response = res.json()[0]
-            daily_volatility = response.get("standardDeviation")*100
-            return f"{round(daily_volatility,2)}%"
-    else:
+
+    if not symbols:
         return None
-            
-     
+
+    with httpx.Client() as r:
+        try:
+            res = r.get(f"{StandardDeviation_URL}/{symbols}", params=params, timeout=30)
+            response = res.json()
+            if response:  # Ensure response is not empty
+                item = response[0] 
+                return item.get("standardDeviation", 0) * 100
+
+        except (IndexError, KeyError, TypeError) as e:
+            print(f"Error fetching volatility for {e}")
+
 
 @router.get("/UploadStocks")
 def Upload_Stocks():
     print("task1")
-    params = {
-        "apikey": os.getenv("API_KEY")
-    }
+    params = {"apikey": os.getenv("API_KEY")}
     print(os.getenv("API_KEY"))
 
     try:
         with db():
             with httpx.Client() as r:
+                # Fetch all existing stock symbols in a single query
+                existing_symbols = {s.symbol: s for s in db.session.query(StockInfo).all()}
+
+                # Fetch all stock data from API in a single request
                 symbol_query = db.session.query(Symbols).all()
+                # stock_data_list = []
+
                 for symbol in symbol_query:
-                    response = r.get(f"{Stock_Base_URL}/{symbol.Csymbol}", params = params,  timeout=30)
+                    response = r.get(f"{Stock_Base_URL}/{symbol.Csymbol}", params=params, timeout=30)
                     res = response.json()
+
                     for data in res:
-                        symbol_id = db.session.query(StockInfo).filter(StockInfo.symbol==symbol.Csymbol).first()
-                        if not symbol_id:
-                            SctockDetails = StockInfo(  symbol = data.get("symbol"),
-                                                        name = data.get("name"),
-                                                        price = data.get("price"),
-                                                        changesPercentage = data.get("changesPercentage"),
-                                                        change = data.get("change"),
-                                                        dayLow = data.get("dayLow"),
-                                                        dayHigh = data.get("dayHigh"),
-                                                        yearHigh = data.get("yearHigh"),
-                                                        yearLow = data.get("yearLow"),
-                                                        marketCap = data.get("marketCap"),
-                                                        priceAvg50 = data.get("priceAvg50"),
-                                                        priceAvg200 = data.get("priceAvg200"),
-                                                        exchange = data.get("exchange"),
-                                                        volume = data.get("volume"),
-                                                        avgVolume = data.get("avgVolume"),
-                                                        open_price = data.get("open") ,
-                                                        previousClose = data.get("previousClose"),
-                                                        eps  = data.get("eps"),
-                                                        pe = data.get("pe"),
-                                                        onedayvolatility = OneDayVolatility(data.get('symbol')),
-                                                        timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
-                                                    )
-                            db.session.add(SctockDetails)
+                        stock_info = existing_symbols.get(data.get("symbol"))
+
+                        if not stock_info:  
+                            # New entry
+                            stock_data_list = StockInfo(
+                                symbol=data.get("symbol"),
+                                name=data.get("name"),
+                                price=data.get("price"),
+                                changesPercentage=data.get("changesPercentage"),
+                                change=data.get("change"),
+                                dayLow=data.get("dayLow"),
+                                dayHigh=data.get("dayHigh"),
+                                yearHigh=data.get("yearHigh"),
+                                yearLow=data.get("yearLow"),
+                                marketCap=data.get("marketCap"),
+                                priceAvg50=data.get("priceAvg50"),
+                                priceAvg200=data.get("priceAvg200"),
+                                exchange=data.get("exchange"),
+                                volume=data.get("volume"),
+                                avgVolume=data.get("avgVolume"),
+                                open_price=data.get("open"),
+                                previousClose=data.get("previousClose"),
+                                eps=data.get("eps"),
+                                pe=data.get("pe"),
+                                onedayvolatility=fetch_volatility_in_batch(data.get("symbol")),  # We'll update this later in batch
+                                timestamp=datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
+                            )
+
+                            db.session.add(stock_data_list)
                             db.session.commit()
-                            db.session.refresh(SctockDetails)
+                            db.session.refresh(stock_data_list)
                         else:
-                            # **Update existing StockInfo record**
-                            symbol_id.name = data.get("name", symbol_id.name)
-                            symbol_id.price = data.get("price", symbol_id.price)
-                            symbol_id.changesPercentage = data.get("changesPercentage", symbol_id.changesPercentage)
-                            symbol_id.change = data.get("change", symbol_id.change)
-                            symbol_id.dayLow = data.get("dayLow", symbol_id.dayLow)
-                            symbol_id.dayHigh = data.get("dayHigh", symbol_id.dayHigh)
-                            symbol_id.yearHigh = data.get("yearHigh", symbol_id.yearHigh)
-                            symbol_id.yearLow = data.get("yearLow", symbol_id.yearLow)
-                            symbol_id.marketCap = data.get("marketCap", symbol_id.marketCap)
-                            symbol_id.priceAvg50 = data.get("priceAvg50", symbol_id.priceAvg50)
-                            symbol_id.priceAvg200 = data.get("priceAvg200", symbol_id.priceAvg200)
-                            symbol_id.exchange = data.get("exchange", symbol_id.exchange)
-                            symbol_id.volume = data.get("volume", symbol_id.volume)
-                            symbol_id.avgVolume = data.get("avgVolume", symbol_id.avgVolume)
-                            symbol_id.open_price = data.get("open", symbol_id.open_price)
-                            symbol_id.previousClose = data.get("previousClose", symbol_id.previousClose)
-                            symbol_id.eps = data.get("eps", symbol_id.eps)
-                            symbol_id.pe = data.get("pe", symbol_id.pe)
-                            symbol_id.onedayvolatility = OneDayVolatility(symbol_id.symbol)
-                            symbol_id.timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
+                            # Update existing record
+                            stock_info.name = data.get("name", stock_info.name)
+                            stock_info.price = data.get("price", stock_info.price)
+                            stock_info.changesPercentage = data.get("changesPercentage", stock_info.changesPercentage)
+                            stock_info.change = data.get("change", stock_info.change)
+                            stock_info.dayLow = data.get("dayLow", stock_info.dayLow)
+                            stock_info.dayHigh = data.get("dayHigh", stock_info.dayHigh)
+                            stock_info.yearHigh = data.get("yearHigh", stock_info.yearHigh)
+                            stock_info.yearLow = data.get("yearLow", stock_info.yearLow)
+                            stock_info.marketCap = data.get("marketCap", stock_info.marketCap)
+                            stock_info.priceAvg50 = data.get("priceAvg50", stock_info.priceAvg50)
+                            stock_info.priceAvg200 = data.get("priceAvg200", stock_info.priceAvg200)
+                            stock_info.exchange = data.get("exchange", stock_info.exchange)
+                            stock_info.volume = data.get("volume", stock_info.volume)
+                            stock_info.avgVolume = data.get("avgVolume", stock_info.avgVolume)
+                            stock_info.open_price = data.get("open", stock_info.open_price)
+                            stock_info.previousClose = data.get("previousClose", stock_info.previousClose)
+                            stock_info.eps = data.get("eps", stock_info.eps)
+                            stock_info.pe = data.get("pe", stock_info.pe)
+                            stock_info.onedayvolatility = fetch_volatility_in_batch(data.get("symbol"))  # Update later in batch
+                            stock_info.timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
 
                             db.session.commit()
-                            db.session.refresh(symbol_id)   
-                return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
+                            db.session.refresh(stock_data_list)
+                # # # Bulk insert new stock data
+                # # if stock_data_list:
+                # #     db.session.bulk_save_objects(stock_data_list)
+
+                # # # Commit all changes in one go
+                # # db.session.commit()
+
+                # # Now fetch & update OneDayVolatility in batch
+                # symbols_list = [s.symbol for s in db.session.query(StockInfo.symbol).all()]
+                # volatility_data = fetch_volatility_in_batch(symbols_list)  # Custom batch function
+
+                # # Update OneDayVolatility in batch
+                # for stock in db.session.query(StockInfo).all():
+                #     stock.onedayvolatility = volatility_data.get(stock.symbol, None)
+
+                # db.session.commit()
+
+                return JSONResponse(status_code=200, content={"message": "Data Successfully Inserted."})
+
     except Exception as e:
-        return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
-    
+        return HTTPException(status_code=403, detail=f"An Error Occurred! {e.args}")
 
 @router.get("/Stocks")
 async def StocksDetails( 
@@ -195,18 +266,28 @@ async def StocksDetails(
     try:
         skip = (page - 1) * limit
         query = db.session.query(StockInfo)
+                # # # Commit all changes in one go
+                # # db.session.commit()
 
         # Apply filters if query parameters are provided
         if symbol:
             query = query.filter(StockInfo.symbol.ilike(f"%{symbol}%"))
         if exchange:
             query = query.filter(StockInfo.exchange.ilike(f"%{exchange}%"))
+                # # Now fetch & update OneDayVolatility in batch
+                # symbols_list = [s.symbol for s in db.session.query(StockInfo.symbol).all()]
+                # volatility_data = fetch_volatility_in_batch(symbols_list)  # Custom batch function
 
         # Get the total count of users that match the filters
         total_count = query.count()
+                # # Update OneDayVolatility in batch
+                # for stock in db.session.query(StockInfo).all():
+                #     stock.onedayvolatility = volatility_data.get(stock.symbol, None)
 
         # Apply pagination
         result = query.offset(skip).limit(limit).all()
+                # db.session.commit()
+
 
         companies = [{  "symbol" : result.symbol,
                         "name" : result.name,
@@ -247,91 +328,54 @@ def Upload_CompanyProfile():
         with db():
             with httpx.Client() as r:
                 symbol_query = db.session.query(Symbols).all()
+
+                # company_profile_list = []
+
                 for symbol in symbol_query:
                     response = r.get(f"{Company_Base_URL}/{symbol.Csymbol}", params = params)
                     res = response.json()
                     for data in res:
                         symbol_id = db.session.query(CompanyProfile).filter(CompanyProfile.symbol==symbol.Csymbol).first()
                         if not symbol_id:
-                            CompanyDetails = CompanyProfile(   symbol=data.get("symbol"),
-                                                                price=data.get("price"),
+                            company_profile_list = CompanyProfile(   symbol=data.get("symbol"),
                                                                 beta=data.get("beta"),
-                                                                volAvg=data.get("volAvg"),
-                                                                mktCap=data.get("mktCap"),
                                                                 lastDiv=data.get("lastDiv"),
-                                                                price_range=data.get("range"),
-                                                                changes=data.get("changes"),
                                                                 companyName=data.get("companyName"),
-                                                                currency=data.get("currency"),
-                                                                cik=data.get("cik"),
-                                                                isin=data.get("isin"),
-                                                                cusip=data.get("cusip"),
-                                                                exchange=data.get("exchange"),
-                                                                exchangeShortName=data.get("exchangeShortName"),
                                                                 industry=data.get("industry"),
                                                                 website=data.get("website"),
                                                                 description=data.get("description"),
-                                                                ceo=data.get("ceo"),
                                                                 sector=data.get("sector"),
                                                                 country=data.get("country"),
-                                                                fullTimeEmployees=data.get("fullTimeEmployees"),
                                                                 phone=data.get("phone"),
                                                                 address=data.get("address"),
                                                                 city=data.get("city"),
                                                                 state=data.get("state"),
                                                                 zip_code=data.get("zip"),
-                                                                dcfDiff=data.get("dcfDiff"),
-                                                                dcf=data.get("dcf"),
-                                                                image=data.get("image"),
                                                                 ipoDate=data.get("ipoDate"),
-                                                                defaultImage=data.get("defaultImage"),
-                                                                isEtf=data.get("isEtf"),
-                                                                isActivelyTrading=data.get("isActivelyTrading"),
-                                                                isAdr=data.get("isAdr"),
-                                                                isFund=data.get("isFund")
                                                             )
-
-                            db.session.add(CompanyDetails)
+                            db.session.add(company_profile_list)
                             db.session.commit()
-                            db.session.refresh(CompanyDetails)
+                            db.session.refresh(company_profile_list)
                         else:
-                            symbol_id.price = data.get("price", symbol_id.price)
                             symbol_id.beta = data.get("beta", symbol_id.beta)
-                            symbol_id.volAvg = data.get("volAvg", symbol_id.volAvg)
-                            symbol_id.mktCap = data.get("mktCap", symbol_id.mktCap)
                             symbol_id.lastDiv = data.get("lastDiv", symbol_id.lastDiv)
-                            symbol_id.price_range = data.get("range", symbol_id.price_range)
-                            symbol_id.changes = data.get("changes", symbol_id.changes)
                             symbol_id.companyName = data.get("companyName", symbol_id.companyName)
-                            symbol_id.currency = data.get("currency", symbol_id.currency)
-                            symbol_id.cik = data.get("cik", symbol_id.cik)
-                            symbol_id.isin = data.get("isin", symbol_id.isin)
-                            symbol_id.cusip = data.get("cusip", symbol_id.cusip)
-                            symbol_id.exchange = data.get("exchange", symbol_id.exchange)
-                            symbol_id.exchangeShortName = data.get("exchangeShortName", symbol_id.exchangeShortName)
                             symbol_id.industry = data.get("industry", symbol_id.industry)
                             symbol_id.website = data.get("website", symbol_id.website)
                             symbol_id.description = data.get("description", symbol_id.description)
-                            symbol_id.ceo = data.get("ceo", symbol_id.ceo)
                             symbol_id.sector = data.get("sector", symbol_id.sector)
                             symbol_id.country = data.get("country", symbol_id.country)
-                            symbol_id.fullTimeEmployees = data.get("fullTimeEmployees", symbol_id.fullTimeEmployees)
                             symbol_id.phone = data.get("phone", symbol_id.phone)
                             symbol_id.address = data.get("address", symbol_id.address)
                             symbol_id.city = data.get("city", symbol_id.city)
                             symbol_id.state = data.get("state", symbol_id.state)
                             symbol_id.zip_code = data.get("zip", symbol_id.zip_code)
-                            symbol_id.dcfDiff = data.get("dcfDiff", symbol_id.dcfDiff)
-                            symbol_id.dcf = data.get("dcf", symbol_id.dcf)
-                            symbol_id.image = data.get("image", symbol_id.image)
                             symbol_id.ipoDate = data.get("ipoDate", symbol_id.ipoDate)
-                            symbol_id.defaultImage = data.get("defaultImage", symbol_id.defaultImage)
-                            symbol_id.isEtf = data.get("isEtf", symbol_id.isEtf)
-                            symbol_id.isActivelyTrading = data.get("isActivelyTrading", symbol_id.isActivelyTrading)
-                            symbol_id.isAdr = data.get("isAdr", symbol_id.isAdr)
-                            symbol_id.isFund = data.get("isFund", symbol_id.isFund)
+
+             
                             db.session.commit()  
                             db.session.refresh(symbol_id)
+
                 return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
@@ -362,41 +406,21 @@ async def CompanyProfile_Details(
 
         companies = [{  
                         "symbol" : result.symbol,
-                        "price": result.price,
                         "beta" : result.beta,
-                        "volAvg": result.volAvg,
-                        "mktCap": result.mktCap,
                         "lastDiv": result.lastDiv,
-                        "price_range": result.price_range,
-                        "changes": result.changes,
                         "companyName": result.companyName,
-                        "currency": result.currency,
-                        "cik": result.cik,
-                        "isin": result.isin,
-                        "cusip": result.cusip,
-                        "exchange": result.exchange,
-                        "exchangeShortName": result.exchangeShortName,
                         "industry": result.industry,
                         "website": result.website,
                         "description": result.description,
-                        "ceo": result.ceo,
                         "sector": result.sector,
                         "country": result.country,
-                        "fullTimeEmployees": result.fullTimeEmployees,
                         "phone": result.phone,
                         "address": result.address,
                         "city": result.city,
                         "state": result.state,
                         "zip_code": result.zip_code,
-                        "dcfDiff": result.dcfDiff,
-                        "dcf": result.dcf,
-                        "image": result.image,
                         "ipoDate":result.ipoDate.strftime("%Y-%m-%d"),
-                        "defaultImage": result.defaultImage,
-                        "isEtf": result.isEtf,
-                        "isActivelyTrading": result.isActivelyTrading,
-                        "isAdr": result.isAdr,
-                        "isFund": result.isFund
+                        
                     } for result in result]
     
         # Return paginated users and total count
@@ -414,14 +438,18 @@ def Upload_StocksPerformance():
         with db():
             with httpx.Client() as r:
                 symbol_query = db.session.query(Symbols).all()
+
+                # Stock_performance_list = []
+
                 for symbol in symbol_query:
-            
                     response = r.get(f"{Stock_Performance_URL}/{symbol.Csymbol}", params = params)
                     res = response.json()
+
                     for data in res:
+
                         symbol_id = db.session.query(StockPerformance).filter(StockPerformance.symbol==symbol.Csymbol).first()
                         if not symbol_id:
-                            stock_performance = StockPerformance(
+                            Stock_performance_list=StockPerformance(
                                                                     symbol=data.get("symbol"),
                                                                     one_day=data.get("1D"),
                                                                     five_day=data.get("5D"),
@@ -435,9 +463,10 @@ def Upload_StocksPerformance():
                                                                     ten_year=data.get("10Y"),
                                                                     max_val=data.get("max"),
                                                                 )
-                            db.session.add(stock_performance)
+                            db.session.add(Stock_performance_list)
                             db.session.commit()
-                            db.session.refresh(stock_performance)
+                            db.session.refresh(Stock_performance_list)
+                    
                         else:
                             # Update existing record
                             symbol_id.one_day = data.get("1D", symbol_id.one_day)
@@ -451,9 +480,11 @@ def Upload_StocksPerformance():
                             symbol_id.five_year = data.get("5Y", symbol_id.five_year)
                             symbol_id.ten_year = data.get("10Y", symbol_id.ten_year)
                             symbol_id.max_val = data.get("max", symbol_id.max_val)
-                            db.session.commit()
 
-            return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
+                            db.session.commit()
+                            db.session.refresh(symbol_id)
+
+                return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
     
@@ -513,100 +544,67 @@ def Upload_FinancialMetrics():
         with db():
             with httpx.Client() as r:
                 symbol_query = db.session.query(Symbols).all()
+
+                # financial_metrics_list = []
+
                 for symbol in symbol_query:
                     response = r.get(f"{Stock_Ratio_URL}/{symbol.Csymbol}", params = params)
                     res = response.json()
+
                     for data in res:
                         symbol_id = db.session.query(FinancialMetrics).filter(FinancialMetrics.symbol==symbol.Csymbol).first()
                         if not symbol_id:
-                            MetricsData = FinancialMetrics(
+                            financial_metrics_list = FinancialMetrics(
                                                             symbol = symbol.Csymbol,
                                                             dividendYielTTM =data.get("dividendYielTTM"), #--------
                                                             dividendYielPercentageTTM =data.get("dividendYielPercentageTTM"),
-                                                            peRatioTTM =data.get("peRatioTTM"),
-                                                            pegRatioTTM =data.get("pegRatioTTM"),
                                                             payoutRatioTTM =data.get("payoutRatioTTM") ,#----------
                                                             currentRatioTTM =data.get("currentRatioTTM"),#----------
                                                             quickRatioTTM =data.get("quickRatioTTM"), #----------
-                                                            cashRatioTTM =data.get("cashRatioTTM"), #-----------
-                                                            daysOfSalesOutstandingTTM =data.get("daysOfSalesOutstandingTTM"),
-                                                            daysOfInventoryOutstandingTTM =data.get("daysOfInventoryOutstandingTTM"),
-                                                            operatingCycleTTM =data.get("operatingCycleTTM"),
-                                                            daysOfPayablesOutstandingTTM =data.get("daysOfPayablesOutstandingTTM"),
-                                                            cashConversionCycleTTM =data.get("cashConversionCycleTTM"),
                                                             grossProfitMarginTTM =data.get("grossProfitMarginTTM"),
-                                                            operatingProfitMarginTTM =data.get("operatingProfitMarginTTM"),
-                                                            pretaxProfitMarginTTM =data.get("pretaxProfitMarginTTM"),
                                                             netProfitMarginTTM =data.get("netProfitMarginTTM"),
-                                                            effectiveTaxRateTTM =data.get("effectiveTaxRateTTM"),
-                                                            returnOnAssetsTTM =data.get("returnOnAssetsTTM"),
-                                                            returnOnEquityTTM =data.get("returnOnEquityTTM"),
-                                                            returnOnCapitalEmployedTTM =data.get("returnOnCapitalEmployedTTM"),
-                                                            netIncomePerEBTTTM =data.get("netIncomePerEBTTTM"),
-                                                            ebtPerEbitTTM =data.get("ebtPerEbitTTM"),
-                                                            ebitPerRevenueTTM =data.get("ebitPerRevenueTTM"),
                                                             debtRatioTTM =data.get("debtRatioTTM"),
                                                             debtEquityRatioTTM =data.get("debtEquityRatioTTM"),
-                                                            longTermDebtToCapitalizationTTM =data.get("longTermDebtToCapitalizationTTM"),
-                                                            totalDebtToCapitalizationTTM =data.get("totalDebtToCapitalizationTTM"),
-                                                            interestCoverageTTM =data.get("interestCoverageTTM"),
                                                             cashFlowToDebtRatioTTM =data.get("cashFlowToDebtRatioTTM"),
-                                                            companyEquityMultiplierTTM =data.get("companyEquityMultiplierTTM"),
-                                                            receivablesTurnoverTTM =data.get("receivablesTurnoverTTM"),
-                                                            payablesTurnoverTTM =data.get("payablesTurnoverTTM"),
-                                                            inventoryTurnoverTTM =data.get("inventoryTurnoverTTM"),
-                                                            fixedAssetTurnoverTTM =data.get("fixedAssetTurnoverTTM"),
-                                                            assetTurnoverTTM =data.get("assetTurnoverTTM"),
-                                                            operatingCashFlowPerShareTTM =data.get("operatingCashFlowPerShareTTM"),
                                                             freeCashFlowPerShareTTM =data.get("freeCashFlowPerShareTTM"),
                                                             cashPerShareTTM =data.get("cashPerShareTTM"),
-                                                            operatingCashFlowSalesRatioTTM =data.get("operatingCashFlowSalesRatioTTM"),
-                                                            freeCashFlowOperatingCashFlowRatioTTM =data.get("freeCashFlowOperatingCashFlowRatioTTM"),
-                                                            cashFlowCoverageRatiosTTM =data.get("cashFlowCoverageRatiosTTM"),
-                                                            shortTermCoverageRatiosTTM =data.get("shortTermCoverageRatiosTTM"),
-                                                            capitalExpenditureCoverageRatioTTM =data.get("capitalExpenditureCoverageRatioTTM"),
-                                                            dividendPaidAndCapexCoverageRatioTTM =data.get("dividendPaidAndCapexCoverageRatioTTM"),
                                                             priceBookValueRatioTTM =data.get("priceBookValueRatioTTM"),
                                                             priceToBookRatioTTM =data.get("priceToBookRatioTTM"),
-                                                            priceToSalesRatioTTM =data.get("priceToSalesRatioTTM"),
                                                             priceEarningsRatioTTM =data.get("priceEarningsRatioTTM"),
-                                                            priceToFreeCashFlowsRatioTTM =data.get("priceToFreeCashFlowsRatioTTM"),
-                                                            priceToOperatingCashFlowsRatioTTM =data.get("priceToOperatingCashFlowsRatioTTM"),
-                                                            priceCashFlowRatioTTM =data.get("priceCashFlowRatioTTM"),
-                                                            priceEarningsToGrowthRatioTTM =data.get("priceEarningsToGrowthRatioTTM"),
-                                                            priceSalesRatioTTM =data.get("priceSalesRatioTTM"),
-                                                            enterpriseValueMultipleTTM =data.get("enterpriseValueMultipleTTM"),
-                                                            priceFairValueTTM =data.get("priceFairValueTTM"),
                                                             dividendPerShareTTM =data.get("dividendPerShareTTM")
 
-                                                        )
-                            db.session.add(MetricsData)
+                            )
+                            db.session.add(financial_metrics_list)
                             db.session.commit()
-                            db.session.refresh(MetricsData)
+                            db.session.refresh(financial_metrics_list)
+
                         else:
-                            for field in [
-                                            "dividendYielTTM", "dividendYielPercentageTTM", "peRatioTTM", "pegRatioTTM", "payoutRatioTTM",
-                                            "currentRatioTTM", "quickRatioTTM", "cashRatioTTM", "daysOfSalesOutstandingTTM",
-                                            "daysOfInventoryOutstandingTTM", "operatingCycleTTM", "daysOfPayablesOutstandingTTM",
-                                            "cashConversionCycleTTM", "grossProfitMarginTTM", "operatingProfitMarginTTM",
-                                            "pretaxProfitMarginTTM", "netProfitMarginTTM", "effectiveTaxRateTTM", "returnOnAssetsTTM",
-                                            "returnOnEquityTTM", "returnOnCapitalEmployedTTM", "netIncomePerEBTTTM", "ebtPerEbitTTM",
-                                            "ebitPerRevenueTTM", "debtRatioTTM", "debtEquityRatioTTM", "longTermDebtToCapitalizationTTM",
-                                            "totalDebtToCapitalizationTTM", "interestCoverageTTM", "cashFlowToDebtRatioTTM",
-                                            "companyEquityMultiplierTTM", "receivablesTurnoverTTM", "payablesTurnoverTTM",
-                                            "inventoryTurnoverTTM", "fixedAssetTurnoverTTM", "assetTurnoverTTM",
-                                            "operatingCashFlowPerShareTTM", "freeCashFlowPerShareTTM", "cashPerShareTTM",
-                                            "operatingCashFlowSalesRatioTTM", "freeCashFlowOperatingCashFlowRatioTTM",
-                                            "cashFlowCoverageRatiosTTM", "shortTermCoverageRatiosTTM",
-                                            "capitalExpenditureCoverageRatioTTM", "dividendPaidAndCapexCoverageRatioTTM",
-                                            "priceBookValueRatioTTM", "priceToBookRatioTTM", "priceToSalesRatioTTM",
-                                            "priceEarningsRatioTTM", "priceToFreeCashFlowsRatioTTM",
-                                            "priceToOperatingCashFlowsRatioTTM", "priceCashFlowRatioTTM",
-                                            "priceEarningsToGrowthRatioTTM", "priceSalesRatioTTM", "enterpriseValueMultipleTTM",
-                                            "priceFairValueTTM", "dividendPerShareTTM"
-                                        ]:
-                                setattr(symbol_id, field, data.get(field, getattr(symbol_id, field)))
-                                db.session.commit()
+                            symbol_id.symbol = symbol.Csymbol
+                            symbol_id.dividendYielTTM =data.get("dividendYielTTM")
+                            symbol_id.dividendYielPercentageTTM =data.get("dividendYielPercentageTTM")
+                            symbol_id.payoutRatioTTM =data.get("payoutRatioTTM")
+                            symbol_id.currentRatioTTM =data.get("currentRatioTTM")
+                            symbol_id.quickRatioTTM =data.get("quickRatioTTM")
+                            symbol_id.grossProfitMarginTTM =data.get("grossProfitMarginTTM")
+                            symbol_id.netProfitMarginTTM =data.get("netProfitMarginTTM")
+                            symbol_id.debtRatioTTM =data.get("debtRatioTTM")
+                            symbol_id.debtEquityRatioTTM =data.get("debtEquityRatioTTM")
+                            symbol_id.cashFlowToDebtRatioTTM =data.get("cashFlowToDebtRatioTTM")
+                            symbol_id.freeCashFlowPerShareTTM =data.get("freeCashFlowPerShareTTM")
+                            symbol_id.cashPerShareTTM =data.get("cashPerShareTTM")
+                            symbol_id.priceBookValueRatioTTM =data.get("priceBookValueRatioTTM")
+                            symbol_id.priceToBookRatioTTM =data.get("priceToBookRatioTTM")
+                            symbol_id.priceEarningsRatioTTM =data.get("priceEarningsRatioTTM")
+                            symbol_id.dividendPerShareTTM =data.get("dividendPerShareTTM")
+
+                            db.session.commit()
+                            db.session.refresh(symbol_id)
+                                
+                # if financial_metrics_list:
+                #     db.session.bulk_save_objects(financial_metrics_list)  
+
+                # db.session.commit()      
+                                
 
                 return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
@@ -625,44 +623,49 @@ def Technical_Indicator():
         with db():
             with httpx.Client() as r:
                 symbol_query = db.session.query(Symbols).all()
+
+                # technical_indicator_list =  []
+
                 for symbol in symbol_query:
                     response = r.get(f"{RSI_Technical_URL}/{symbol.Csymbol}", params = params)
                     res = response.json()
-                    data = res[0]
-                    formatted_date = datetime.strptime(data.get("date"), "%Y-%m-%d %H:%M:%S").date()
-                    symbol_id = db.session.query(TechnicalIndicator).filter(
-                       and_(
-                            TechnicalIndicator.date ==  formatted_date,
-                            TechnicalIndicator.symbol == symbol.Csymbol
-                        )
-                        ).first()
                     
-                    if not symbol_id:
-                        TechnicaldData = TechnicalIndicator(
-                            symbol = symbol.Csymbol,
-                            date = formatted_date,
-                            open_price = data.get("open"),
-                            high = data.get("high"),
-                            low = data.get("low"),
-                            close = data.get("close"),
-                            volume = data.get("volume"),
-                            rsi = data.get("rsi")
-                        )
-                        db.session.add(TechnicaldData)
-                        db.session.commit()
-                        db.session.refresh(TechnicaldData)
-                    else:
-                        symbol_id.date = formatted_date
-                        symbol_id.open_price = data.get("open", symbol_id.open_price)
-                        symbol_id.high = data.get("high", symbol_id.high)
-                        symbol_id.low = data.get("low", symbol_id.low)
-                        symbol_id.close = data.get("close", symbol_id.close)
-                        symbol_id.volume = data.get("volume", symbol_id.volume)
-                        symbol_id.rsi = data.get("rsi", symbol_id.rsi)
-                        db.session.commit()
-                        db.session.refresh(symbol_id)
+                    if res:
+                        data = res[0]
+                        formatted_date = datetime.strptime(data.get("date"), "%Y-%m-%d %H:%M:%S").date()
+                        symbol_id = db.session.query(TechnicalIndicator).filter(
+                            and_(
+                                TechnicalIndicator.date ==  formatted_date,
+                                TechnicalIndicator.symbol == symbol.Csymbol
+                            )
+                            ).first()
+                        
+                        if not symbol_id:
+                            technical_indicator_list = TechnicalIndicator(
+                                symbol = symbol.Csymbol,
+                                date = formatted_date,
+                                open_price = data.get("open"),
+                                high = data.get("high"),
+                                low = data.get("low"),
+                                close = data.get("close"),
+                                volume = data.get("volume"),
+                                rsi = data.get("rsi")
+                            )
+                            db.session.add(technical_indicator_list)
+                            db.session.commit()
+                            db.session.refresh(technical_indicator_list)
+                        else:
+                            symbol_id.date = formatted_date
+                            symbol_id.open_price = data.get("open", symbol_id.open_price)
+                            symbol_id.high = data.get("high", symbol_id.high)
+                            symbol_id.low = data.get("low", symbol_id.low)
+                            symbol_id.close = data.get("close", symbol_id.close)
+                            symbol_id.volume = data.get("volume", symbol_id.volume)
+                            symbol_id.rsi = data.get("rsi", symbol_id.rsi)
+                            db.session.commit()
+                            db.session.refresh(symbol_id)
 
-            return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
+                return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
 
@@ -678,108 +681,58 @@ def upload_financial_growth():
         with db():
             with httpx.Client() as client:
                 symbols = db.session.query(Symbols).all()
+
+                # financial_growth_list = []
+
                 for symbol in symbols:
                     response = client.get(f"{FINANCIAL_GROWTH_URL}/{symbol.Csymbol}", params=params)
                     res = response.json()
-                    data = res[0]
-                    formatted_date = datetime.strptime(data.get("date"), "%Y-%m-%d").date()
                     
-                    existing_record = db.session.query(FinancialGrowth).filter(
-                        and_(
-                            FinancialGrowth.date == formatted_date,
-                            FinancialGrowth.symbol == symbol.Csymbol
-                        )
-                    ).first()
+                    if res:
+                        data = res[0]
+                        formatted_date = datetime.strptime(data.get("date"), "%Y-%m-%d").date()
+                        
+                        existing_record = db.session.query(FinancialGrowth).filter(
+                            and_(
+                                FinancialGrowth.date == formatted_date,
+                                FinancialGrowth.symbol == symbol.Csymbol
+                            )
+                        ).first()
+                        
+                        if not existing_record:
+                            financial_growth_list = FinancialGrowth(
+                                symbol=data.get('symbol'),
+                                date=data.get('date'),
+                                calendarYear=data.get('calendarYear'),
+                                period=data.get('period'),
+                                revenueGrowth=data.get('revenueGrowth'),
+                                grossProfitGrowth=data.get('grossProfitGrowth'),
+                                ebitgrowth=data.get('ebitgrowth'),
+                                netIncomeGrowth=data.get('netIncomeGrowth'),
+                                epsgrowth=data.get('epsgrowth')
+                            )
+                            db.session.add(financial_growth_list)
+                            db.session.commit()
+                            db.session.refresh(financial_growth_list)
+                        else:
+                            existing_record.symbol = data.get('symbol', existing_record.symbol)
+                            existing_record.date =data.get('date', existing_record.date)
+                            existing_record.calendarYear=data.get('calendarYear', existing_record.calendarYear)
+                            existing_record.period=data.get('period',existing_record.period)
+                            existing_record.revenueGrowth=data.get('revenueGrowth',existing_record.revenueGrowth)
+                            existing_record.grossProfitGrowth=data.get('grossProfitGrowth',existing_record.grossProfitGrowth)
+                            existing_record.ebitgrowth=data.get('ebitgrowth',existing_record.ebitgrowth)
+                            existing_record.netIncomeGrowth=data.get('netIncomeGrowth',existing_record.netIncomeGrowth)
+                            existing_record.epsgrowth=data.get('epsgrowth',existing_record.epsgrowth)
+
+                            db.session.commit()
+                            db.session.refresh(existing_record)
+                    # if financial_growth_list:
+                    #     db.session.bulk_save_objects(financial_growth_list)
                     
-                    if not existing_record:
-                        entry = FinancialGrowth(
-                            symbol=data.get('symbol'),
-                            date=data.get('date'),
-                            calendarYear=data.get('calendarYear'),
-                            period=data.get('period'),
-                            revenueGrowth=data.get('revenueGrowth'),
-                            grossProfitGrowth=data.get('grossProfitGrowth'),
-                            ebitgrowth=data.get('ebitgrowth'),
-                            operatingIncomeGrowth=data.get('operatingIncomeGrowth'),
-                            netIncomeGrowth=data.get('netIncomeGrowth'),
-                            epsgrowth=data.get('epsgrowth'),
-                            epsdilutedGrowth=data.get('epsdilutedGrowth'),
-                            weightedAverageSharesGrowth=data.get('weightedAverageSharesGrowth'),
-                            weightedAverageSharesDilutedGrowth=data.get('weightedAverageSharesDilutedGrowth'),
-                            dividendsperShareGrowth=data.get('dividendsperShareGrowth'),
-                            operatingCashFlowGrowth=data.get('operatingCashFlowGrowth'),
-                            freeCashFlowGrowth=data.get('freeCashFlowGrowth'),
-                            tenYRevenueGrowthPerShare=data.get('tenYRevenueGrowthPerShare'),
-                            fiveYRevenueGrowthPerShare=data.get('fiveYRevenueGrowthPerShare'),
-                            threeYRevenueGrowthPerShare=data.get('threeYRevenueGrowthPerShare'),
-                            tenYOperatingCFGrowthPerShare=data.get('tenYOperatingCFGrowthPerShare'),
-                            fiveYOperatingCFGrowthPerShare=data.get('fiveYOperatingCFGrowthPerShare'),
-                            threeYOperatingCFGrowthPerShare=data.get('threeYOperatingCFGrowthPerShare'),
-                            tenYNetIncomeGrowthPerShare=data.get('tenYNetIncomeGrowthPerShare'),
-                            fiveYNetIncomeGrowthPerShare=data.get('fiveYNetIncomeGrowthPerShare'),
-                            threeYNetIncomeGrowthPerShare=data.get('threeYNetIncomeGrowthPerShare'),
-                            tenYShareholdersEquityGrowthPerShare=data.get('tenYShareholdersEquityGrowthPerShare'),
-                            fiveYShareholdersEquityGrowthPerShare=data.get('fiveYShareholdersEquityGrowthPerShare'),
-                            threeYShareholdersEquityGrowthPerShare=data.get('threeYShareholdersEquityGrowthPerShare'),
-                            tenYDividendperShareGrowthPerShare=data.get('tenYDividendperShareGrowthPerShare'),
-                            fiveYDividendperShareGrowthPerShare=data.get('fiveYDividendperShareGrowthPerShare'),
-                            threeYDividendperShareGrowthPerShare=data.get('threeYDividendperShareGrowthPerShare'),
-                            receivablesGrowth=data.get('receivablesGrowth'),
-                            inventoryGrowth=data.get('inventoryGrowth'),
-                            assetGrowth=data.get('assetGrowth'),
-                            bookValueperShareGrowth=data.get('bookValueperShareGrowth'),
-                            debtGrowth=data.get('debtGrowth'),
-                            rdexpenseGrowth=data.get('rdexpenseGrowth'),
-                            sgaexpensesGrowth=data.get('sgaexpensesGrowth')
-
-                        )
-                        db.session.add(entry)
-                        db.session.commit()
-                        db.session.refresh(entry)
-                    else:
-                        existing_record.symbol = data.get('symbol', existing_record.symbol)
-                        existing_record.date = data.get('date', existing_record.date)
-                        existing_record.calendarYear = data.get('calendarYear', existing_record.calendarYear)
-                        existing_record.period = data.get('period', existing_record.period)
-                        existing_record.revenueGrowth = data.get('revenueGrowth', existing_record.revenueGrowth)
-                        existing_record.grossProfitGrowth = data.get('grossProfitGrowth', existing_record.grossProfitGrowth)
-                        existing_record.ebitgrowth = data.get('ebitgrowth', existing_record.ebitgrowth)
-                        existing_record.operatingIncomeGrowth = data.get('operatingIncomeGrowth', existing_record.operatingIncomeGrowth)
-                        existing_record.netIncomeGrowth = data.get('netIncomeGrowth', existing_record.netIncomeGrowth)
-                        existing_record.epsgrowth = data.get('epsgrowth', existing_record.epsgrowth)
-                        existing_record.epsdilutedGrowth = data.get('epsdilutedGrowth', existing_record.epsdilutedGrowth)
-                        existing_record.weightedAverageSharesGrowth = data.get('weightedAverageSharesGrowth', existing_record.weightedAverageSharesGrowth)
-                        existing_record.weightedAverageSharesDilutedGrowth = data.get('weightedAverageSharesDilutedGrowth', existing_record.weightedAverageSharesDilutedGrowth)
-                        existing_record.dividendsperShareGrowth = data.get('dividendsperShareGrowth', existing_record.dividendsperShareGrowth)
-                        existing_record.operatingCashFlowGrowth = data.get('operatingCashFlowGrowth', existing_record.operatingCashFlowGrowth)
-                        existing_record.freeCashFlowGrowth = data.get('freeCashFlowGrowth', existing_record.freeCashFlowGrowth)
-                        existing_record.tenYRevenueGrowthPerShare = data.get('tenYRevenueGrowthPerShare', existing_record.tenYRevenueGrowthPerShare)
-                        existing_record.fiveYRevenueGrowthPerShare = data.get('fiveYRevenueGrowthPerShare', existing_record.fiveYRevenueGrowthPerShare)
-                        existing_record.threeYRevenueGrowthPerShare = data.get('threeYRevenueGrowthPerShare', existing_record.threeYRevenueGrowthPerShare)
-                        existing_record.tenYOperatingCFGrowthPerShare = data.get('tenYOperatingCFGrowthPerShare', existing_record.tenYOperatingCFGrowthPerShare)
-                        existing_record.fiveYOperatingCFGrowthPerShare = data.get('fiveYOperatingCFGrowthPerShare', existing_record.fiveYOperatingCFGrowthPerShare)
-                        existing_record.threeYOperatingCFGrowthPerShare = data.get('threeYOperatingCFGrowthPerShare', existing_record.threeYOperatingCFGrowthPerShare)
-                        existing_record.tenYNetIncomeGrowthPerShare = data.get('tenYNetIncomeGrowthPerShare', existing_record.tenYNetIncomeGrowthPerShare)
-                        existing_record.fiveYNetIncomeGrowthPerShare = data.get('fiveYNetIncomeGrowthPerShare', existing_record.fiveYNetIncomeGrowthPerShare)
-                        existing_record.threeYNetIncomeGrowthPerShare = data.get('threeYNetIncomeGrowthPerShare', existing_record.threeYNetIncomeGrowthPerShare)
-                        existing_record.tenYShareholdersEquityGrowthPerShare = data.get('tenYShareholdersEquityGrowthPerShare', existing_record.tenYShareholdersEquityGrowthPerShare)
-                        existing_record.fiveYShareholdersEquityGrowthPerShare = data.get('fiveYShareholdersEquityGrowthPerShare', existing_record.fiveYShareholdersEquityGrowthPerShare)
-                        existing_record.threeYShareholdersEquityGrowthPerShare = data.get('threeYShareholdersEquityGrowthPerShare', existing_record.threeYShareholdersEquityGrowthPerShare)
-                        existing_record.tenYDividendperShareGrowthPerShare = data.get('tenYDividendperShareGrowthPerShare', existing_record.tenYDividendperShareGrowthPerShare)
-                        existing_record.fiveYDividendperShareGrowthPerShare = data.get('fiveYDividendperShareGrowthPerShare', existing_record.fiveYDividendperShareGrowthPerShare)
-                        existing_record.threeYDividendperShareGrowthPerShare = data.get('threeYDividendperShareGrowthPerShare', existing_record.threeYDividendperShareGrowthPerShare)
-                        existing_record.receivablesGrowth = data.get('receivablesGrowth', existing_record.receivablesGrowth)
-                        existing_record.inventoryGrowth = data.get('inventoryGrowth', existing_record.inventoryGrowth)
-                        existing_record.assetGrowth = data.get('assetGrowth', existing_record.assetGrowth)
-                        existing_record.bookValueperShareGrowth = data.get('bookValueperShareGrowth', existing_record.bookValueperShareGrowth)
-                        existing_record.debtGrowth = data.get('debtGrowth', existing_record.debtGrowth)
-                        existing_record.rdexpenseGrowth = data.get('rdexpenseGrowth', existing_record.rdexpenseGrowth)
-                        existing_record.sgaexpensesGrowth = data.get('sgaexpensesGrowth', existing_record.sgaexpensesGrowth)
-
-                        db.session.commit()
-                        db.session.refresh(existing_record)
+                    # db.session.commit()
             
-            return {"message": "Financial Growth Data Successfully Inserted."}
+                return JSONResponse({"message": "Financial Growth Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403, detail=f"An Error Occurred! {e.args}")
     
@@ -793,77 +746,77 @@ async def my_task():
     print(f"Task is running at {current_time}!")
 
 # Initialize the scheduler
-scheduler = BackgroundScheduler(timezone=pytz.timezone('US/Eastern'))
+scheduler = BackgroundScheduler(executors={"default": ThreadPoolExecutor(5)})  # Max 5 concurrent jobs
 
 
-# Function to schedule the task using CronTrigger
+# # Function to schedule the task using CronTrigger
+# from apscheduler.schedulers.background import BackgroundScheduler
+# from apscheduler.triggers.cron import CronTrigger
+# from pytz import timezone
+
+# scheduler = BackgroundScheduler(timezone=timezone("US/Eastern"))
+
 def Myscheduler():
-    # Define the cron trigger to run every 2 hours between 9:30 AM and 4 PM
-    trigger = CronTrigger(
-        hour="9-16",    # Every 2 hours between 9 and 16 (9:30 AM, 11:30 AM, etc.)
-        minute="*",    
-        day_of_week="mon-sun",  # At minute 30 (9:30, 11:30, etc.)
-        timezone="US/Eastern",
-    )
+    trigger = CronTrigger(hour="9-16", minute="*/10", day_of_week="mon-fri")
 
     scheduler.add_job(
         Upload_Stocks,
         trigger=trigger,
-        id='my_task1',  # Unique ID for this job
+        id='my_task1',
         replace_existing=True,
-        # max_instances=2  # Replace the existing job with the same ID if it exists
+        max_instances=2,  # Allow 2 jobs to run in parallel
+        misfire_grace_time=60,  # If delayed by 60 sec, still run
+        coalesce=True  # Run only the latest missed instance
     )
 
     scheduler.add_job(
         Upload_CompanyProfile,
         trigger=trigger,
-        id='my_task2',  # Unique ID for this job
+        id='my_task2',
         replace_existing=True,
-        # max_instances=2,
-        # misfire_grace_time=60,  # Runs even if delayed by 60 sec
-        # coalesce=True
+        max_instances=2,
+        misfire_grace_time=60,
+        coalesce=True
     )
+
     scheduler.add_job(
         Upload_StocksPerformance,
         trigger=trigger,
-        id='my_task3',  # Unique ID for this job
+        id='my_task3',
         replace_existing=True,
-        # max_instances=4,
-        # misfire_grace_time=60,  # Runs even if delayed by 60 sec
-        # coalesce=True
+        max_instances=3,
+        misfire_grace_time=120,  # Allow 2-minute delay
+        coalesce=True
     )
+
     scheduler.add_job(
         Upload_FinancialMetrics,
         trigger=trigger,
-        id='my_task4',  # Unique ID for this job
+        id='my_task4',
         replace_existing=True,
-        # max_instances=4,
-        # misfire_grace_time=60,  # Runs even if delayed by 60 sec
-        # coalesce=True
+        max_instances=3,
+        misfire_grace_time=120,
+        coalesce=True
     )
 
     scheduler.add_job(
         Technical_Indicator,
         trigger=trigger,
-        id='my_task5',  # Unique ID for this job
+        id='my_task5',
         replace_existing=True,
-        # max_instances=2,
-        # misfire_grace_time=60,  # Runs even if delayed by 60 sec
-        # coalesce=True
+        max_instances=1,  # Keep it single-threaded if critical
+        misfire_grace_time=120,
+        coalesce=True
     )
 
     scheduler.add_job(
         upload_financial_growth,
         trigger=trigger,
-        id='my_task6',  # Unique ID for this job
+        id='my_task6',
         replace_existing=True,
-        # max_instances=2,
-        # misfire_grace_time=60,  # Runs even if delayed by 60 sec
-        # coalesce=True
+        max_instances=2,
+        misfire_grace_time=60,
+        coalesce=True
     )
 
-
-    print("Cron job scheduled to run every 2 hours from 9:30 AM to 4 PM.")
     scheduler.start()
-    print("Scheduler Started")
-

@@ -10,6 +10,8 @@ from Routers.StockIdeas import ChatBot
 from Models.StocksModels import Symbols
 from fastapi_sqlalchemy import db
 from sqlalchemy import or_, and_
+import nltk
+nltk.download('stopwords')
 
 load_dotenv()
 
@@ -21,8 +23,6 @@ genai.configure(api_key=os.getenv("gemini_key"))
 
 def generate_stock_analysis(symbol, query):
     """Generate AI-powered stock analysis based on the query."""
-
-    
 
     # if not stock_data:
     #     return "Sorry, I couldn't fetch the stock data for your query."
@@ -41,9 +41,14 @@ def generate_stock_analysis(symbol, query):
                                     "max_output_tokens": 1024
                                 }
                                 )
-
+    print(symbol)
     if symbol:
-        stock_data = ChatBot(symbol)[0]
+        stock_data = ChatBot(symbol)
+        
+        if not stock_data:
+            return None
+        
+        stock_data=stock_data[0]
         # Dynamic prompt adjustment based on user query
         prompt = f"""
         Based on the following stock data, provide an analysis for the question: "{query}"
@@ -111,34 +116,56 @@ def generate_stock_analysis(symbol, query):
         return f"Analysis Error: {str(e)}"
 
 # List of popular stock symbols to match user input
-tickers = [
-            'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'TSLA', 'ADBE', 'PYPL', 'NFLX', 
-            'INTC', 'MRNA', 'QCOM', 'PEP', 'SBUX', 'CSCO', 'SPOT', 'AMD', 'NOW', 'SQ', 
-            'TTD', 'ILMN', 'ASML', 'BMY', 'BIIB', 'WDAY', 'JNJ', 'JPM', 'XOM', 'KO', 
-            'DIS', 'PG', 'CVX', 'V', 'PFE', 'HD', 'MCD', 'MRK', 'BA', 'CAT', 'VZ', 
-            'IBM', 'XOM', 'LMT', 'NKE', 'CL', 'T', 'PEP', 'ABBV', 'WBA', 'GE', 
-            'TGT', 'AXP', 'GS', 'CVX', 'MMM', 'UNH', 'AMT', 'SPGI', 'ABT'
-        ]
+tickers  = [
+    "ABT", "CVX", "DIS", "MRK", "XOM", "PG", "T", "AXP", "ILMN", "NKE", 
+    "NOW", "CL", "AMD", "CSCO", "IBM", "KO", "PFE", "SPGI", "VZ", "JPM", 
+    "AMT", "V", "GE", "CAT", "LMT", "BA", "MRNA", "MMM", "MCD", "AAPL", 
+    "GOOGL", "INTC", "SPOT", "JNJ", "BIIB", "ADBE", "ABBV", "GS", "HD", 
+    "META", "TGT", "UNH", "PEP", "ASML", "BMY", "SBUX", "QCOM", "AMZN", 
+    "TSLA", "NVDA", "MSFT", "WBA", "PYPL", "NFLX", "TTD", "WDAY", "SQ", 
+    "NPOF.ME", "KZMS.ME", "PMGOLD.AX", "TERRAREAL.BO", "ADANIENT.NS", 
+    "BSE.NS", "HDFCBANK.NS", "DIVISLAB.NS", "CUB.NS", "CBPE.JK", "BBNI.JK", 
+    "BBCA.JK", "BRIS.JK", "P34.SI", "GPSO.JK", "U11.SI", "K71U.SI", "N2IU.SI"
+]
+
 
 class Message(BaseModel):
     message: str
 
 @ChatRouter.post('/chatbot')
-async def Bot(ChatModel: Message):
+def Bot(ChatModel: Message):
 
     user_input = ChatModel.message.strip().upper()
 
+    query =  db.session.query(Symbols)
+
     cleaned_string = re.sub(r'[^A-Za-z0-9\s]', '', user_input)
     user_data = cleaned_string.split(" ")
- 
+    
     matching_elements = [item for item in user_data if item in tickers]
+
+    from nltk.corpus import stopwords
+
+    stop_words = set(stopwords.words('english'))
+    print(stop_words)  # Set of common stop words in English
+
+    # Example: Filtering stop words from a sentence
+    filtered_data = [word for word in user_data if word.lower() not in stop_words]
+    print(filtered_data)
 
     if matching_elements:
         symbol = matching_elements[0]
         result = generate_stock_analysis(symbol, user_input)
         return JSONResponse(result)
     else:
-        result = generate_stock_analysis(None, user_input)
-        return JSONResponse(result)
+        query = query.filter(
+                        or_(*[Symbols.Cname.ilike(f"%{word}%") for word in filtered_data])
+                    ).first()
+        print(query)
+        if query:
+            result = generate_stock_analysis(query.Csymbol, user_input)
+            return JSONResponse(result)
     
-    
+        else:
+            result =  generate_stock_analysis(None, user_input)
+            return JSONResponse(result)
