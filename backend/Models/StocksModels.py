@@ -35,7 +35,7 @@ class StockInfo(Base):
     previousClose = Column(Float)
     eps = Column(Float)
     pe = Column(Float)
-    onedayvolatility = Column(String(100))
+    # onedayvolatility = Column(String(100))
     timestamp = Column(Date)
 
 class CompanyProfile(Base):
@@ -104,11 +104,6 @@ class TechnicalIndicator(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     symbol = Column(String(20))
     date = Column(Date)
-    open_price = Column(Float)
-    high = Column(Float)
-    low = Column(Float)
-    close = Column(Float)
-    volume = Column(BigInteger)
     rsi = Column(Float)
 
 class FinancialGrowth(Base):
@@ -126,3 +121,10 @@ class FinancialGrowth(Base):
     netIncomeGrowth = Column(Float)
     epsgrowth = Column(Float)
    
+class StandardDeviation(Base):
+    __tablename__ = "standarddevation"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column(String(20))
+    date = Column(Date)
+    std = Column(Float)
