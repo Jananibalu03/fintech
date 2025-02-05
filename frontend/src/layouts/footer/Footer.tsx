@@ -1,4 +1,4 @@
-import whitelogo from "../../assets/images/whitelogo.png";
+import whitelogo from "../../assets/images/fin-logo-white.png";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTwitter, faLinkedin, faInstagram, faFacebook } from '@fortawesome/free-brands-svg-icons';
 import { faEnvelope, faPhone, faLocationDot } from '@fortawesome/free-solid-svg-icons';
@@ -10,7 +10,9 @@ export default function Footer() {
         <footer>
             <div className="footer-container">
                 <div className="footer-section">
-                    <img src={whitelogo} alt='logo' />
+                    <a href="/">
+                        <img src={whitelogo} alt='logo' className="main-logo mb-3" />
+                    </a>
                     <p>Your trusted platform for stock recommendations, analysis,<br /> and financial insights.</p>
                 </div>
 

@@ -32,8 +32,8 @@ interface ToptrendState {
     highdividendSuccess: boolean,
     negativebetaPayload: null,
     negativebetaSuccess: boolean,
-    lowin52Payload:null,
-    lowin52Success:boolean
+    lowin52Payload: null,
+    lowin52Success: boolean
 }
 
 const initialState: ToptrendState = {
@@ -73,9 +73,9 @@ const initialState: ToptrendState = {
 
 export const fetchVolatility = createAsyncThunk(
     'volatility/fetchVolatility',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.fetchVolatility(page, limit);
+            const data = await AuthService.fetchVolatility(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -86,7 +86,7 @@ export const fetchVolatility = createAsyncThunk(
 
 export const hignin52 = createAsyncThunk(
     'volatility/hignin52',
-    async ({ Search, page, limit }: { Search:any, page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
             const data = await AuthService.hignin52(Search, page, limit);
             return data;
@@ -99,7 +99,7 @@ export const hignin52 = createAsyncThunk(
 
 export const lowin52 = createAsyncThunk(
     'volatility/lowin52',
-    async ({ Search, page, limit }: { Search:any, page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
             const data = await AuthService.lowin52(Search, page, limit);
             return data;
@@ -112,9 +112,9 @@ export const lowin52 = createAsyncThunk(
 
 export const lowperatio = createAsyncThunk(
     'volatility/lowperatio',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.lowperatio(page, limit);
+            const data = await AuthService.lowperatio(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -125,9 +125,9 @@ export const lowperatio = createAsyncThunk(
 
 export const topgain = createAsyncThunk(
     'volatility/topgain',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.topgain(page, limit);
+            const data = await AuthService.topgain(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -138,9 +138,9 @@ export const topgain = createAsyncThunk(
 
 export const toploss = createAsyncThunk(
     'volatility/toploss',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.toploss(page, limit);
+            const data = await AuthService.toploss(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -151,9 +151,9 @@ export const toploss = createAsyncThunk(
 
 export const topperform = createAsyncThunk(
     'volatility/topperform',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.topperform(page, limit);
+            const data = await AuthService.topperform(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -164,9 +164,9 @@ export const topperform = createAsyncThunk(
 
 export const underfiftydollor = createAsyncThunk(
     'volatility/underfiftydollor',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.underfiftydollor(page, limit);
+            const data = await AuthService.underfiftydollor(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -177,9 +177,9 @@ export const underfiftydollor = createAsyncThunk(
 
 export const undertendollar = createAsyncThunk(
     'volatility/undertendollar',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.undertendollar(page, limit);
+            const data = await AuthService.undertendollar(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -190,9 +190,9 @@ export const undertendollar = createAsyncThunk(
 
 export const negativebeta = createAsyncThunk(
     'volatility/negativebeta',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.negativebeta(page, limit);
+            const data = await AuthService.negativebeta(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -202,9 +202,9 @@ export const negativebeta = createAsyncThunk(
 
 export const lowbeta = createAsyncThunk(
     'volatility/lowbeta',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({ Search, page, limit }: { Search: any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.lowbeta(page, limit);
+            const data = await AuthService.lowbeta(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -214,9 +214,9 @@ export const lowbeta = createAsyncThunk(
 
 export const highriskandreward = createAsyncThunk(
     'volatility/highriskandreward',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({Search, page, limit }: {Search:any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.highriskandreward(page, limit);
+            const data = await AuthService.highriskandreward(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -227,9 +227,9 @@ export const highriskandreward = createAsyncThunk(
 
 export const debtfreestocks = createAsyncThunk(
     'volatility/debtfreestocks',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({Search, page, limit }: {Search:any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.debtfreestocks(page, limit);
+            const data = await AuthService.debtfreestocks(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -239,9 +239,9 @@ export const debtfreestocks = createAsyncThunk(
 
 export const dividend = createAsyncThunk(
     'volatility/dividend',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({Search, page, limit }: {Search:any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.dividend(page, limit);
+            const data = await AuthService.dividend(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');
@@ -251,9 +251,9 @@ export const dividend = createAsyncThunk(
 
 export const highdividend = createAsyncThunk(
     'volatility/highdividend',
-    async ({ page, limit }: { page: number; limit: number }, { rejectWithValue }) => {
+    async ({Search, page, limit }: {Search:any, page: number; limit: number }, { rejectWithValue }) => {
         try {
-            const data = await AuthService.highdividend(page, limit);
+            const data = await AuthService.highdividend(Search, page, limit);
             return data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data || 'An error occurred');

@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { highdividend } from './TopTrendSlice';
 import { RootState } from '../../store/Store';
 
+
 export default function HighDividend() {
 
   const itemsPerPage = 10;
@@ -15,19 +16,34 @@ export default function HighDividend() {
   });
 
   const dispatch = useDispatch();
-  const { highdividendPayload, error, loading } = useSelector(
+  const { highdividendPayload, loading } = useSelector(
     (state: RootState) => state.TopTrend
   );
 
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+    let timer: ReturnType<typeof setTimeout>;
+    return function (this: any, ...args: Parameters<T>) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    } as T;
+  }
+
+  const fetchData = debounce((Search, page) => {
+    dispatch<any>(highdividend({ Search, page, limit: itemsPerPage }));
+  }, 500);
+
   useEffect(() => {
-    dispatch<any>(highdividend({ page: currentPage, limit: itemsPerPage }));
-  }, [currentPage, dispatch]);
+    fetchData(searchTerm, currentPage);
+  }, [searchTerm, currentPage, dispatch]);
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
 
-  const filteredData =
-    (highdividendPayload?.data || highdividendPayload || []).filter((item: any) =>
-      item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const filteredData = (highdividendPayload?.data || highdividendPayload || []).filter((item: any) =>
+    item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortConfig.key) {
@@ -57,7 +73,7 @@ export default function HighDividend() {
     { label: "Price", key: "Price" },
     { label: "Volume", key: "Volume" },
     { label: "MarketCap", key: "MarketCap" },
-    { label: "52WeeksLow", key: "52WeeksLow" },
+    { label: "52WeeksHigh", key: "52WeeksHigh" },
     { label: "52WeeksLow", key: "52WeeksLow" },
     { label: "Beta", key: "Beta" },
     { label: "PERatio", key: "PERatio" },
@@ -94,7 +110,7 @@ export default function HighDividend() {
                 placeholder="Search stocks..."
                 className="form-control"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
           </div>
@@ -102,7 +118,6 @@ export default function HighDividend() {
       </div>
 
       <div className="container mb-5">
-        {error && <div className="alert alert-danger">{error}</div>}
         {loading ? (
           <div>Loading...</div>
         ) : (
@@ -138,11 +153,22 @@ export default function HighDividend() {
                       <tr key={index}>
                         <td style={{ padding: '12px', cursor: "pointer" }} className='table-active'>{stock.Symbol}</td>
                         <td style={{ padding: '12px', cursor: "pointer" }}>{stock.Name}</td>
-                        <td style={{ padding: '1px 20px', cursor: "pointer" }} className={getNumberColor(stock.Price)}>{stock.Price}</td>
+                        <td
+                          style={{ padding: '1px 20px', cursor: "pointer" }}
+                          className={getNumberColor(stock.Price)}
+                        >
+                          {stock.Price ? `$${parseFloat(stock.Price.replace("USD", "").trim())}` : "-"}
+                        </td>
                         <td>{stock.Volume}</td>
                         <td>{stock.MarketCap}</td>
-                        < td style={{ padding: '12px' }}> ${stock['52WeeksHigh']} </td>
-                        < td style={{ padding: '12px' }}> ${stock['52WeeksLow']} </td>
+                        < td style={{
+                          padding: '12px',
+                          color: 'green',
+                        }}> ${stock['52WeeksHigh']} </td>
+                        < td style={{
+                          padding: '12px',
+                          color: 'red',
+                        }}> ${stock['52WeeksLow']} </td>
                         <td>{stock.Beta}</td>
                         <td>{stock.PERatio}</td>
                         <td>{stock.EPS}</td>

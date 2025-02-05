@@ -1,8 +1,8 @@
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { searchData } from './SearchSlice'; 
+import { searchData } from './SearchSlice';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../store/Store';
 
@@ -10,23 +10,19 @@ import { RootState } from '../../store/Store';
 export default function Dashboard() {
 
     const [query, setQuery] = useState('');
-    const [selectedStock, setSelectedStock] = useState('');
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
     const searchResults = useSelector((state: RootState) => state.search.searchDataPayload);
 
-    const handleSearch = () => {
-        if (!query.trim()) {
-            alert('Please enter a search query.');
-            return;
+    useEffect(() => {
+        if (query.length > 1) {
+            dispatch<any>(searchData(query));
         }
-        dispatch<any>(searchData(query))
-    };
- 
+    }, [query]);
+
     const handleStockSelect = (symbol: string) => {
-        console.log(symbol);
-        setSelectedStock(symbol);
+        setQuery('');
         navigate(`/search/${symbol}`, { state: { query, symbol } });
     };
 
@@ -39,50 +35,37 @@ export default function Dashboard() {
                 </h6>
 
                 <div className="d-flex flex-column flex-md-row justify-content-center align-items-center search-sec mt-4">
-                   
                     <div className="input-group mb-3 mb-md-0">
-                        
-                        <span className="input-group-text" id="basic-addon1">
+                        <span className="input-group-text">
                             <FontAwesomeIcon icon={faSearch} />
                         </span>
-
                         <input
                             type="text"
-                            className="form-control p-3 me-md-3"
+                            className="form-control p-3 "
                             placeholder="Search stock by symbol or name"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            aria-label="Search"
-                            aria-describedby="basic-addon1"
                         />
                     </div>
-                    <button
-                        className="search-btn mt-3 mt-md-0 px-4 py-3"
-                        onClick={handleSearch}
-                    >
-                        Search
-                    </button>
                 </div>
 
-                {searchResults && searchResults.length > 0 && (
-                    <div className="search-results-container text-center">
-                        <ul className="list-group search-page-result">
-                            {searchResults.map((stock: any) => (
-                                <li
-                                    key={stock.symbol}
-                                    className="list-group-item d-flex justify-content-between align-items-center"
-                                    onClick={() => handleStockSelect(stock.symbol)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <span>{stock.name}</span>
-                                    <span className="text-black">{stock.symbol}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                {searchResults?.length > 0 && query.length > 1 && (
+                    <ul className="list-group search-page-result">
+                        {searchResults.map((stock: any) => (
+                            <li
+                                key={stock.Symbol}
+                                className="list-group-item d-flex justify-content-between align-items-center"
+                                onClick={() => handleStockSelect(stock.Symbol)}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <span className="text-black">{stock.Symbol}</span>
+                                <span>{stock.Name}</span>
+                            </li>
+                        ))}
+                    </ul>
                 )}
+
             </div>
         </section>
-
     );
 }

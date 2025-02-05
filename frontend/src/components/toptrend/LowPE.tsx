@@ -6,6 +6,7 @@ import { Pagination } from 'antd';
 
 
 export default function LowPE() {
+
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,20 +16,36 @@ export default function LowPE() {
   });
 
   const dispatch = useDispatch();
-  const { lowperatioPayload } = useSelector(
+  const { lowperatioPayload, loading } = useSelector(
     (state: RootState) => state.TopTrend
   );
 
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+    let timer: ReturnType<typeof setTimeout>;
+    return function (this: any, ...args: Parameters<T>) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    } as T;
+  }
+
+  const fetchData = debounce((Search, page) => {
+    dispatch<any>(lowperatio({ Search, page, limit: itemsPerPage }));
+  }, 500);
+
   useEffect(() => {
-    dispatch<any>(lowperatio({ page: currentPage, limit: itemsPerPage }));
-  }, [dispatch, currentPage]);
+    fetchData(searchTerm, currentPage);
+  }, [searchTerm, currentPage, dispatch]);
 
-  const filteredStocks =
-    (lowperatioPayload?.data || lowperatioPayload || []).filter((item: any) =>
-      item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
 
-  const sortedStocks = [...filteredStocks].sort((a, b) => {
+  const filteredData = (lowperatioPayload?.data || lowperatioPayload || []).filter((item: any) =>
+    item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const sortedData = [...filteredData].sort((a, b) => {
     if (sortConfig.key) {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
@@ -38,7 +55,7 @@ export default function LowPE() {
     return 0;
   });
 
-  const currentItems = sortedStocks;
+  const currentItems = sortedData;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -91,7 +108,7 @@ export default function LowPE() {
                 placeholder="Search stocks..."
                 className="form-control"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
           </div>
@@ -131,7 +148,7 @@ export default function LowPE() {
                     <td style={{ padding: '12px', cursor: "pointer" }} className='table-active'>{stock.Symbol}</td>
                     <td>{stock.Name}</td>
                     <td className={getNumberColor(stock.Price)}>{stock.Price}</td>
-                 
+
                     <td>{stock.Volume}</td>
                     <td>{stock.MarketCap}</td>
                     <td>{stock.Beta}</td>

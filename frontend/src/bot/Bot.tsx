@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { BotData } from "./BotSlice";
 
 interface ChatMessage {
     message: string;
@@ -7,14 +9,26 @@ interface ChatMessage {
 }
 
 export default function Bot() {
-
     const [userMessage, setUserMessage] = useState("");
     const [chat, setChat] = useState<ChatMessage[]>([
         { message: "Welcome! Ask me about stocks!", isCentered: true },
     ]);
-
     const [isChatOpen, setIsChatOpen] = useState(false);
     const chatWindowRef = useRef<HTMLDivElement | null>(null);
+
+    const dispatch = useDispatch();
+    const { loading, BotDataSuccess, BotDataPayload } = useSelector(
+        (state: any) => state.Bot
+    );
+
+    useEffect(() => {
+        if (BotDataSuccess && BotDataPayload) {
+            setChat((prevChat) => [
+                ...prevChat,
+                { message: BotDataPayload, isCentered: false, sender: "Bot" },
+            ]);
+        }
+    }, [BotDataPayload]);
 
     useEffect(() => {
         if (chatWindowRef.current) {
@@ -22,23 +36,15 @@ export default function Bot() {
         }
     }, [chat]);
 
-    
     const handleSend = () => {
-
-        const botResponses: Record<string, string> = {
-            "What is a good stock to buy?": "I recommend looking into Apple (AAPL) or Microsoft (MSFT).",
-            "Should I sell Tesla stock?": "It depends on your financial goals, but holding might be a good idea right now.",
-            "What is the best stock for long-term investment?": "Consider Amazon (AMZN) for long-term growth.",
-        };
-
-        const response =
-            botResponses[userMessage] || "I'm sorry, I don't have an answer for that. Try asking something else!";
+        if (!userMessage.trim()) return;
 
         setChat((prevChat) => [
             ...prevChat,
             { message: userMessage, isCentered: false, sender: "User" },
-            { message: response, isCentered: false, sender: "Bot" },
         ]);
+
+        dispatch<any>(BotData(userMessage));
         setUserMessage("");
     };
 
@@ -54,7 +60,12 @@ export default function Bot() {
                 <div className="chat-container">
                     <div className="bot-container">
                         <h1 className="bot-title">Stock Suggestion Bot</h1>
-                        <div className="bot-chat-window" ref={chatWindowRef}>
+                        <div
+                            className="bot-chat-window"
+                            ref={chatWindowRef}
+
+                        >
+
                             {chat.map((entry, index) => (
                                 <div
                                     key={index}
@@ -64,10 +75,10 @@ export default function Bot() {
                                             ? "user-bubble"
                                             : "bot-bubble"
                                         }`}
-                                >
-                                    {entry.message}
-                                </div>
+                                    dangerouslySetInnerHTML={{ __html: entry.message }}
+                                />
                             ))}
+                            {loading && <div className="chat-bubble">Loading...</div>}
                         </div>
 
                         <div className="bot-input-container">
@@ -75,9 +86,15 @@ export default function Bot() {
                                 type="text"
                                 value={userMessage}
                                 onChange={(e) => setUserMessage(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        handleSend();
+                                    }
+                                }}
                                 placeholder="Ask a question..."
                                 className="bot-input"
                             />
+
                             <button onClick={handleSend} className="bot-send-button">
                                 Send
                             </button>

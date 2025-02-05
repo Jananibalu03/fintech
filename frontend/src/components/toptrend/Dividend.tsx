@@ -17,18 +17,34 @@ export default function Dividend() {
   });
 
   const dispatch = useDispatch();
-  const { dividendPayload, error, loading } = useSelector(
+  const { dividendPayload, loading } = useSelector(
     (state: RootState) => state.TopTrend
   );
 
-  useEffect(() => {
-    dispatch<any>(dividend({ page: currentPage, limit: itemsPerPage }));
-  }, [currentPage, dispatch]);
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+    let timer: ReturnType<typeof setTimeout>;
+    return function (this: any, ...args: Parameters<T>) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    } as T;
+  }
 
-  const filteredData =
-    (dividendPayload?.data || dividendPayload || []).filter((item: any) =>
-      item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const fetchData = debounce((Search, page) => {
+    dispatch<any>(dividend({ Search, page, limit: itemsPerPage }));
+  }, 500);
+
+  useEffect(() => {
+    fetchData(searchTerm, currentPage);
+  }, [searchTerm, currentPage, dispatch]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const filteredData = (dividendPayload?.data || dividendPayload || []).filter((item: any) =>
+    item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortConfig.key) {
@@ -93,7 +109,7 @@ export default function Dividend() {
                 placeholder="Search stocks..."
                 className="form-control"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
           </div>
@@ -101,7 +117,6 @@ export default function Dividend() {
       </div>
 
       <div className="container mb-5">
-        {error && <div className="alert alert-danger">{error}</div>}
         {loading ? (
           <div>Loading...</div>
         ) : (
@@ -137,7 +152,12 @@ export default function Dividend() {
                       <tr key={index}>
                         <td style={{ padding: '12px', cursor: "pointer" }} className='table-active'>{stock.Symbol}</td>
                         <td style={{ padding: '12px', cursor: "pointer" }}>{stock.Name}</td>
-                        <td style={{ padding: '1px 20px', cursor: "pointer" }} className={getNumberColor(stock.Price)}>{stock.Price}</td>
+                        <td
+                          style={{ padding: '1px 20px', cursor: "pointer" }}
+                          className={getNumberColor(stock.Price)}
+                        >
+                          {stock.Price ? `$${parseFloat(stock.Price.replace("USD", "").trim())}` : "-"}
+                        </td>
                         <td style={{ cursor: "pointer" }}>
                           {stock["1DVolatility"]}
                         </td>
@@ -156,7 +176,7 @@ export default function Dividend() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={16} className="text-center">
+                      <td colSpan={12} className="text-center">
                         No data available
                       </td>
                     </tr>
@@ -170,9 +190,8 @@ export default function Dividend() {
                 pageSize={itemsPerPage}
                 onChange={handlePageChange}
                 showSizeChanger={false}
-                  total={dividendPayload?.totalCount || 100}
+                total={dividendPayload?.totalCount || 100}
               />
-
             </div>
           </>
         )}

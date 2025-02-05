@@ -22,6 +22,7 @@ import HighDividend from './components/toptrend/HighDividend';
 import TopTrends from './components/toptrend/TopTrends';
 import LowWeek52 from './components/toptrend/LowWeek52';
 import HignWeek52 from './components/toptrend/HignWeek52';
+import StockChart from './components/search/StockChart';
 
 function App() {
   return (
@@ -29,7 +30,7 @@ function App() {
       <Header />
       <Bot />
       <Routes>
-        <Route path='/dashboard' element={<Dashboard />} />
+        <Route path='/' element={<Dashboard />} />
         <Route path='/search/:stock' element={<Search />} />
         <Route path='/VolatilityDetails' element={<VolatilityDetails />} />
         <Route path='/52-week-high-stocks' element={<HignWeek52 />} />
@@ -41,6 +42,8 @@ function App() {
         <Route path='/lowbeta' element={<LowBeta />} />
         <Route path='/high-risk-high-reward' element={<HighRishandReward />} />
         <Route path='/debitfree' element={<DebitFree />} />
+        {/* <Route path='/stockchart' element={<StockChart />} /> */}
+
         <Route path='/dividend' element={<Dividend />} />
         <Route path='/low-pe-ratio' element={<LowPE />} />
         <Route path='/top-gain' element={<TopGain />} />

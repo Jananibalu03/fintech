@@ -7,58 +7,100 @@ import { Pagination } from 'antd';
 
 export default function TopPerform() {
 
+  const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: "", direction: 'asc' });
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+
 
   const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch<any>(topperform({ page: currentPage, limit: itemsPerPage }));
-  }, [dispatch, currentPage, sortConfig, searchTerm]);
-
-  const { topperformPayload } = useSelector((state: RootState) => state.TopTrend);
-
-  const filteredStocks = (topperformPayload || []).filter((item: any) =>
-    item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
+  const { topperformPayload, loading } = useSelector(
+    (state: RootState) => state.TopTrend
   );
 
-  const requestSort = (key: string) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+    let timer: ReturnType<typeof setTimeout>;
+    return function (this: any, ...args: Parameters<T>) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    } as T;
+  }
+
+  const fetchData = debounce((Search, page) => {
+    dispatch<any>(topperform({ Search, page, limit: itemsPerPage }));
+  }, 500);
+
+
+  useEffect(() => {
+    fetchData(searchTerm, currentPage);
+  }, [searchTerm, currentPage, dispatch]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
   };
 
-  const sortedStocks = [...filteredStocks].sort((a: any, b: any) => {
+  const filteredData = (topperformPayload?.data || topperformPayload || []).filter((item: any) =>
+    item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const sortedData = [...filteredData].sort((a, b) => {
     if (sortConfig.key) {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortConfig.direction === 'asc'
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
     }
     return 0;
   });
+
+  const currentItems = sortedData;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
-  const getNumberColor = (key: string, value: number | string) => {
+  const handleSort = (key: string) => {
+    const direction =
+      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
+    setSortConfig({ key, direction });
+  };
+
+  const headers = [
+    { label: "Symbol", key: "Symbol" },
+    { label: "Name", key: "Name" },
+    { label: "Price", key: "Price" },
+
+    { label: 'DayHigh', key: 'DayHigh' },
+    { label: 'DayLow', key: 'DayLow' },
+    { label: "1D", key: "1D" },
+    { label: "1M", key: "1M" },
+    { label: "1Y", key: "1Y" },
+    { label: "Volume", key: "Volume" },
+    { label: "MarketCap", key: "Marketap" },
+    { label: '52 Weeks High', key: '52WeeksHigh' },
+    { label: '52 Weeks Low', key: '52WeeksLow' },
+    { label: "SMA50", key: "SMA50" },
+    { label: "SMA200", key: "SMA200" },
+    { label: "Beta", key: "Beta" },
+    { label: "PERatio", key: "PERatio" },
+    { label: "EPS", key: "EPS" },
+    { label: "RSI", key: "RSI" },
+    { label: "FreeCashFlowTTM", key: "FreeCashFlowTTM" },
+    { label: "ProfitMarginsTTM", key: "ProfitMarginsTTM" },
+    { label: "DividendYieldTTM", key: "DividendYieldTTM" },
+    { label: "RevenueGrowthTTM", key: "RevenueGrowthTTM" },
+    { label: "Sector", key: "Sector" },
+  ];
+
+  const getNumberColor = (value: number | string) => {
     const numericValue = Number(value);
     if (isNaN(numericValue)) return "";
-    if (key === "DayHigh" || key === "52WeeksHigh") return "text-success";
-    if (key === "DayLow" || key === "52WeeksLow") return "text-danger";
-    return numericValue < 0 ? "text-danger" : "text-success";
+    if (numericValue < 0) return "text-danger";
+    if (numericValue > 0) return "text-success";
+    return "";
   };
+
 
   return (
     <section>
@@ -76,7 +118,7 @@ export default function TopPerform() {
                 type="text"
                 placeholder="Search stocks..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 className="form-control"
               />
             </div>
@@ -85,44 +127,79 @@ export default function TopPerform() {
       </div>
 
       <div className="container mb-5">
+        {loading ? (
+          <div className="d-flex justify-content-center">Loading...</div>
+        ) : (
+          <>
         <div style={{ overflowX: "auto" }}>
           <table className="table table-bordered table-hover mb-0">
             <thead>
               <tr>
-                {['Symbol', 'Name', 'Price', 'Volume', 'MarketCap', 'DayHigh', 'DayLow', '52WeeksHigh', '52WeeksLow', 'SMA50', 'SMA200', 'Beta', 'PERatio', 'RSI', 'FreeCashFlowTTM', 'ProfitMarginsTTM', 'DividendPayoutRatioTTM', 'RevenueGrowthTTM', 'Sector'].map((key) => (
+                {headers.map((header) => (
                   <th
-                    key={key}
+                    key={header.key}
+                    onClick={() => handleSort(header.key)}
                     style={{ padding: "20px", whiteSpace: "nowrap", cursor: "pointer" }}
-                    onClick={() => requestSort(key)}
                   >
-                    {key}
-                    {sortConfig.key === key ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    {header.label}
+                    {sortConfig.key === header.key ? (
+                      sortConfig.direction === "asc" ? (
+                        " ▲"
+                      ) : (
+                        " ▼"
+                      )
+                    ) : (
+                      ""
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
 
             <tbody>
-              {sortedStocks.length > 0 ? (
-                sortedStocks.map((stock: any) => (
+              {currentItems.length > 0 ? (
+                currentItems.map((stock: any) => (
                   <tr key={stock.Symbol}>
                     <td style={{ padding: '12px', cursor: "pointer" }} className="table-active">{stock.Symbol}</td>
-                    <td style={{ padding: '20px', whiteSpace: 'nowrap' }}>{stock.Name}</td>
-                    <td>${stock.Price}</td>
+                    <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{stock.Name}</td>
+                    <td
+                      style={{ cursor: "pointer" }}
+                      className={getNumberColor(stock.Price)}
+                    >
+                      {stock.Price ? `$${parseFloat(stock.Price.replace("USD", "").trim())}` : "-"}
+                    </td>
+
+                    < td style={{
+                      padding: '12px',
+                      color: 'green',
+                    }}> ${stock['DayHigh']} </td>
+                    < td style={{
+                      padding: '12px',
+                      color: 'red',
+                    }}> ${stock['DayLow']} </td>
+
+                    <td className={getNumberColor(stock["1D"])}>{stock["1D"]}</td>
+                    <td className={getNumberColor(stock["1M"])}>{stock["1M"]}</td>
+                    <td className={getNumberColor(stock["1Y"])}>{stock["1Y"]}</td>
                     <td>{stock.Volume}</td>
                     <td>{stock.MarketCap}</td>
-                    <td className={getNumberColor("DayHigh", stock.DayHigh)}>{stock.DayHigh}</td>
-                    <td className={getNumberColor("DayLow", stock.DayLow)}>{stock.DayLow}</td>
-                    <td className={getNumberColor("52WeeksHigh", stock["52WeeksHigh"])}>{stock["52WeeksHigh"]}</td>
-                    <td className={getNumberColor("52WeeksLow", stock["52WeeksLow"])}>{stock["52WeeksLow"]}</td>
+                    < td style={{
+                      padding: '12px',
+                      color: 'green',
+                    }}> ${stock['52WeeksHigh']} </td>
+                    < td style={{
+                      padding: '12px',
+                      color: 'red',
+                    }}> ${stock['52WeeksLow']} </td>
                     <td>{stock.SMA50}</td>
                     <td>{stock.SMA200}</td>
                     <td>{stock.Beta}</td>
                     <td>{stock.PERatio}</td>
+                    <td>{stock.EPS}</td>
                     <td>{stock.RSI}</td>
                     <td>{stock.FreeCashFlowTTM}</td>
                     <td>{stock.ProfitMarginsTTM}</td>
-                    <td>{stock.DividendPayoutRatioTTM}</td>
+                    <td>{stock.DividendYieldTTM}</td>
                     <td>{stock.RevenueGrowthTTM}</td>
                     <td>{stock.Sector}</td>
                   </tr>
@@ -147,6 +224,9 @@ export default function TopPerform() {
             showSizeChanger={false}
           />
         </div>
+          </>
+        )}
+
       </div>
     </section>
   );

@@ -79,20 +79,23 @@ p {
     position: fixed;
     bottom: 80px;
     right: 20px;
-    max-width: 300px;
+    max-width: 350px;
     width: 100%;
     background: #f4f4f4;
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     z-index: 1000;
     display: flex;
+
     flex-direction: column;
+    height: auto;
+
 }
 
 .bot-container {
     display: flex;
     flex-direction: column;
-    height: 400px;
+    height: 485px;
     overflow: hidden;
 }
 
@@ -111,6 +114,7 @@ p {
     display: inline-block;
     max-width: 80%;
     word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .bot-bubble {
@@ -129,12 +133,20 @@ p {
 }
 
 .bot-chat-window {
+    height: 400px;
+    /* Adjustable height */
+    max-height: 70vh;
+    /* Ensures it fits the screen */
+    overflow-y: auto;
+    /* Enables scrolling */
+    resize: vertical;
+
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding: 20px;
     flex-grow: 1;
-    overflow-y: auto;
+
     background: var(--white);
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
@@ -191,10 +203,15 @@ p {
 }
 
 footer {
-    background-color: #1a1a1a;
     color: var(--white);
     padding: 20px 30px;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #222;
+    padding: 20px 0;
 }
+
 
 footer p {
     margin: 5px 0;
@@ -260,10 +277,6 @@ footer .copyright {
     height: 85vh;
 }
 
-.search-sec {
-    padding: 9px;
-}
-
 .search-btn {
     background-color: #00609c;
     color: var(--white);
@@ -278,7 +291,6 @@ footer .copyright {
     display: flex;
     flex-wrap: wrap;
     align-items: stretch;
-    width: 30%;
 }
 
 .search-page input {
@@ -328,10 +340,11 @@ footer .copyright {
     align-items: center;
 }
 
+
 .search-page-result {
     width: 100%;
-    max-width: 525px;
-    margin: 0 auto;
+    max-width: 430px;
+    margin: auto;
     border: 1px solid #ddd;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

@@ -1,5 +1,3 @@
-
-import { Link } from "react-router-dom";
 import logo from "../../assets/images/fin-logo.png";
 
 
@@ -9,7 +7,9 @@ export default function Header() {
         <>
             <nav className="navbar navbar-expand-lg py-md-4">
                 <div className="container">
-                    <img src={logo} alt="logo" className="main-logo me-4" />
+                    <a href="/">
+                        <img src={logo} alt="logo" className="main-logo me-4" />
+                    </a>
                     <button
                         className="navbar-toggler"
                         type="button"
@@ -48,7 +48,7 @@ export default function Header() {
 
                         <ul className="navbar-nav me-4 mb-lg-0">
                             <li className="nav-item">
-                                <a className="nav-link" aria-current="page" href="/dashboard">Watchlist</a>
+                                <a className="nav-link" aria-current="page" href="/">Watchlist</a>
                             </li>
                             <li className="nav-item">
                                 <a className="nav-link" href="/top-trend">Top trend</a>
@@ -89,7 +89,7 @@ export default function Header() {
                                 </button>
                             </li> */}
 
-                            <li className="nav-item dropdown header-without-profile">
+                            {/* <li className="nav-item dropdown header-without-profile">
                                 <a className="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     JB
                                 </a>
@@ -105,7 +105,7 @@ export default function Header() {
                                         </Link>
                                     </li>
                                 </ul>
-                            </li>
+                            </li> */}
                         </ul>
 
                     </div>

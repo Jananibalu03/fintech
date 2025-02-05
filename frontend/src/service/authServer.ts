@@ -3,10 +3,10 @@ import { BASE_URL } from '../config/config';
 
 export const AuthService = {
 
-    fetchVolatility: async (page: number, limit: number) => {
+    fetchVolatility: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}volatility`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -40,10 +40,10 @@ export const AuthService = {
         }
     },
 
-    lowperatio: async (page: number, limit: number) => {
+    lowperatio: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}lowperatio`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -52,10 +52,11 @@ export const AuthService = {
         }
     },
 
-    topgain: async (page: number, limit: number) => {
+
+    topgain: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}todaytopgain`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -65,10 +66,10 @@ export const AuthService = {
     },
 
 
-    toploss: async (page: number, limit: number) => {
+    toploss: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}todaytoploss`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -78,10 +79,10 @@ export const AuthService = {
     },
 
 
-    topperform: async (page: number, limit: number) => {
+    topperform: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}todaytoploss`, {
-                params: { page, limit },
+            const response = await axios.get(`${BASE_URL}topperformance`, {
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -91,10 +92,10 @@ export const AuthService = {
     },
 
 
-    underfiftydollor: async (page: number, limit: number) => {
+    underfiftydollor: async (Seach: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}abovetendoller`, {
-                params: { page, limit },
+                params: { Seach, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -103,10 +104,10 @@ export const AuthService = {
         }
     },
 
-    undertendollar: async (page: number, limit: number) => {
+    undertendollar: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}undertendollar`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -115,10 +116,10 @@ export const AuthService = {
         }
     },
 
-    negativebeta: async (page: number, limit: number) => {
+    negativebeta: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}negativebeta`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -127,10 +128,10 @@ export const AuthService = {
         }
     },
 
-    lowbeta: async (page: number, limit: number) => {
+    lowbeta: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}lowbeta`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -139,10 +140,10 @@ export const AuthService = {
         }
     },
 
-    highriskandreward: async (page: number, limit: number) => {
+    highriskandreward: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}highriskandreward`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -151,10 +152,11 @@ export const AuthService = {
         }
     },
 
-    debtfreestocks: async (page: number, limit: number) => {
+
+    debtfreestocks: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}debtfreestocks`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -163,10 +165,11 @@ export const AuthService = {
         }
     },
 
-    dividend: async (page: number, limit: number) => {
+
+    dividend: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}dividend`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
         } catch (error) {
@@ -175,16 +178,54 @@ export const AuthService = {
         }
     },
 
-    highdividend: async (page: number, limit: number) => {
+    highdividend: async (Search: any, page: number, limit: number) => {
         try {
             const response = await axios.get(`${BASE_URL}highdividendyield`, {
-                params: { page, limit },
+                params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching 52-week high data:', error);
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
 
+
+    searchData: async (symbol: string) => {
+        try {
+            const response = await axios.get(`${BASE_URL}Search`, {
+                params: { symbol }, // This will correctly append ?symbol=ibm
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Error fetching search data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+
+    graphData: async (symbol: string, range_type: any) => {
+        try {
+            const response = await axios.get(`${BASE_URL}graph`, {
+                params: { symbol, range_type },
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Error fetching search data:', error);
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+
+    BotData: async (message: string) => {
+        try {
+            const response = await axios.post("http://127.0.0.1:8000/botapi/chatbot", {
+                message,
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error("Error fetching bot response:", error);
+            throw new Error(error.response?.data?.message || "An error occurred while fetching the data");
+        }
+    }
 };

@@ -5,6 +5,7 @@ import { highriskandreward } from "./TopTrendSlice";
 import { RootState } from "../../store/Store";
 
 export default function HighRishandReward() {
+
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -14,18 +15,34 @@ export default function HighRishandReward() {
   });
 
   const dispatch = useDispatch();
-  const { highrandrPayload, error, loading } = useSelector(
+  const { highrandrPayload, loading } = useSelector(
     (state: RootState) => state.TopTrend
   );
 
-  useEffect(() => {
-    dispatch<any>(highriskandreward({ page: currentPage, limit: itemsPerPage }));
-  }, [currentPage, dispatch]);
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+    let timer: ReturnType<typeof setTimeout>;
+    return function (this: any, ...args: Parameters<T>) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    } as T;
+  }
 
-  const filteredData =
-    (highrandrPayload?.data || highrandrPayload || []).filter((item: any) =>
-      item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const fetchData = debounce((Search, page) => {
+    dispatch<any>(highriskandreward({ Search, page, limit: itemsPerPage }));
+  }, 500);
+
+  useEffect(() => {
+    fetchData(searchTerm, currentPage);
+  }, [searchTerm, currentPage, dispatch]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const filteredData = (highrandrPayload?.data || highrandrPayload || []).filter((item: any) =>
+    item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortConfig.key) {
@@ -97,7 +114,7 @@ export default function HighRishandReward() {
                 placeholder="Search stocks..."
                 className="form-control"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
           </div>
@@ -105,7 +122,6 @@ export default function HighRishandReward() {
       </div>
 
       <div className="container mb-5">
-        {error && <div className="alert alert-danger">{error}</div>}
         {loading ? (
           <div>Loading...</div>
         ) : (

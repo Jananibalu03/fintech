@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/Store';
 import { debtfreestocks } from './TopTrendSlice';
 
+
 export default function DebitFree() {
 
   const itemsPerPage = 10;
@@ -15,18 +16,34 @@ export default function DebitFree() {
   });
 
   const dispatch = useDispatch();
-  const { debtfreestockPayload, error, loading } = useSelector(
+  const { debtfreestockPayload, loading } = useSelector(
     (state: RootState) => state.TopTrend
   );
 
-  useEffect(() => {
-    dispatch<any>(debtfreestocks({ page: currentPage, limit: itemsPerPage }));
-  }, [currentPage, dispatch]);
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+    let timer: ReturnType<typeof setTimeout>;
+    return function (this: any, ...args: Parameters<T>) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    } as T;
+  }
 
-  const filteredData =
-    (debtfreestockPayload?.data || debtfreestockPayload || []).filter((item: any) =>
-      item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const fetchData = debounce((Search, page) => {
+    dispatch<any>(debtfreestocks({ Search, page, limit: itemsPerPage }));
+  }, 500);
+
+  useEffect(() => {
+    fetchData(searchTerm, currentPage);
+  }, [searchTerm, currentPage, dispatch]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const filteredData = (debtfreestockPayload?.data || debtfreestockPayload || []).filter((item: any) =>
+    item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (sortConfig.key) {
@@ -92,7 +109,7 @@ export default function DebitFree() {
                 placeholder="Search stocks..."
                 className="form-control"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
           </div>
@@ -100,7 +117,6 @@ export default function DebitFree() {
       </div>
 
       <div className="container mb-5">
-        {error && <div className="alert alert-danger">{error}</div>}
         {loading ? (
           <div>Loading...</div>
         ) : (
@@ -130,35 +146,40 @@ export default function DebitFree() {
                   </tr>
                 </thead>
 
-                  <tbody>
-                    {currentItems.length > 0 ? (
-                      currentItems.map((stock, index) => (
-                        <tr key={index}>
-                          <td className='table-active'>{stock.Symbol}</td>
-                          <td>{stock.Name}</td>
-                          <td className={getNumberColor(stock.Price)}>{stock.Price}</td>
-                          <td className={getNumberColor(stock["1DVolatility"])}>{stock["1DVolatility"]}</td>
-                          <td>{stock.Volume}</td>
-                          <td>{stock.MarketCap}</td>
-                          <td>{stock.Beta}</td>
-                          <td>{stock.PERatio}</td>
-                          <td>{stock.CurrentRatioTTM}</td>
-                          <td>{stock.QuickRatioTTM}</td>
-                          <td>{stock.FreeCashFlowTTM}</td>
-                          <td>{stock.ProfitMarginsTTM}</td>
-                          <td>{stock.DividendPayoutRatioTTM}</td>
-                          <td>{stock.RevenueGrowthTTM}</td>
-                          <td>{stock.Sector}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={16} className="text-center">
-                          No data available
+                <tbody>
+                  {currentItems.length > 0 ? (
+                    currentItems.map((stock, index) => (
+                      <tr key={index}>
+                        <td className='table-active'>{stock.Symbol}</td>
+                        <td>{stock.Name}</td>
+                        <td
+                          style={{ padding: '1px 20px', cursor: "pointer" }}
+                          className={getNumberColor(stock.Price)}
+                        >
+                          {stock.Price ? `$${parseFloat(stock.Price.replace("USD", "").trim())}` : "-"}
                         </td>
+                        <td className={getNumberColor(stock["1DVolatility"])}>{stock["1DVolatility"]}</td>
+                        <td>{stock.Volume}</td>
+                        <td>{stock.MarketCap}</td>
+                        <td>{stock.Beta}</td>
+                        <td>{stock.PERatio}</td>
+                        <td>{stock.CurrentRatioTTM}</td>
+                        <td>{stock.QuickRatioTTM}</td>
+                        <td>{stock.FreeCashFlowTTM}</td>
+                        <td>{stock.ProfitMarginsTTM}</td>
+                        <td>{stock.DividendPayoutRatioTTM}</td>
+                        <td>{stock.RevenueGrowthTTM}</td>
+                        <td>{stock.Sector}</td>
                       </tr>
-                    )}
-                  </tbody>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={13} className="text-center">
+                        No data available
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
 
               </table>
             </div>
@@ -168,7 +189,7 @@ export default function DebitFree() {
                 pageSize={itemsPerPage}
                 onChange={handlePageChange}
                 showSizeChanger={false}
-                  total={debtfreestockPayload?.totalCount || 100}
+                total={debtfreestockPayload?.totalCount || 100}
               />
 
             </div>

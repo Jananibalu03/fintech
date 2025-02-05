@@ -17,7 +17,7 @@ export default function HignWeek52() {
     });
 
     const dispatch = useDispatch();
-    const { hignin52Payload, error, loading } = useSelector(
+    const { hignin52Payload, loading } = useSelector(
         (state: RootState) => state.TopTrend
     );
 
@@ -41,12 +41,10 @@ export default function HignWeek52() {
         setSearchTerm(e.target.value);
     };
 
-    // const filteredData =
-    //     (hignin52Payload?.data || hignin52Payload || []).filter((item: any) =>
-    //         item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-    //     );
-
-    const filteredData = hignin52Payload?.data || hignin52Payload || [];
+    const filteredData = (hignin52Payload?.data || hignin52Payload || []).filter((item: any) =>
+        item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const sortedData = [...filteredData].sort((a, b) => {
         if (sortConfig.key) {
@@ -97,7 +95,6 @@ export default function HignWeek52() {
         return "";
     };
 
-    
     return (
         <section>
             <div className="d-flex toptrend-sub-banner p-5">
@@ -121,7 +118,6 @@ export default function HignWeek52() {
             </div>
 
             <div className="container mb-5">
-                {error && <div className="alert alert-danger">{error}</div>}
                 {loading ? (
                     <div className="d-flex justify-content-center">Loading...</div>
                 ) : (
@@ -163,6 +159,7 @@ export default function HignWeek52() {
                                                 >
                                                     {stock.Price ? `$${parseFloat(stock.Price.replace("USD", "").trim())}` : "-"}
                                                 </td>
+
                                                 <td className={getNumberColor(stock["1D"])}>{stock["1D"]}</td>
                                                 <td className={getNumberColor(stock["1M"])}>{stock["1M"]}</td>
                                                 <td className={getNumberColor(stock["1Y"])}>{stock["1Y"]}</td>

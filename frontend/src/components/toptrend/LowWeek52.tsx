@@ -17,7 +17,7 @@ export default function LowWeek52() {
     });
 
     const dispatch = useDispatch();
-    const { lowin52Payload, error, loading } = useSelector(
+    const { lowin52Payload, loading } = useSelector(
         (state: RootState) => state.TopTrend
     );
 
@@ -33,6 +33,7 @@ export default function LowWeek52() {
         dispatch<any>(lowin52({ Search, page, limit: itemsPerPage }));
     }, 500);
 
+
     useEffect(() => {
         fetchData(searchTerm, currentPage);
     }, [searchTerm, currentPage, dispatch]);
@@ -41,10 +42,10 @@ export default function LowWeek52() {
         setSearchTerm(e.target.value);
     };
 
-    const filteredData =
-        (lowin52Payload?.data || lowin52Payload || []).filter((item: any) =>
-            item.Name && item.Name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+    const filteredData = (lowin52Payload?.data || lowin52Payload || []).filter((item: any) =>
+        item.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.Symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const sortedData = [...filteredData].sort((a, b) => {
         if (sortConfig.key) {
@@ -95,7 +96,7 @@ export default function LowWeek52() {
         return "";
     };
 
-    
+
     return (
         <section>
             <div className="d-flex toptrend-sub-banner p-5">
@@ -119,7 +120,7 @@ export default function LowWeek52() {
             </div>
 
             <div className="container mb-5">
-                {error && <div className="alert alert-danger">{error}</div>}
+                {/* {error && <div className="alert alert-danger">{error}</div>} */}
                 {loading ? (
                     <div className="d-flex justify-content-center">Loading...</div>
                 ) : (
@@ -155,7 +156,12 @@ export default function LowWeek52() {
                                             <tr key={index}>
                                                 <td style={{ padding: '12px', cursor: "pointer" }} className='table-active'>{stock.Symbol}</td>
                                                 <td style={{ padding: '12px', cursor: "pointer" }}>{stock.Name}</td>
-                                                <td style={{ padding: '1px 20px', cursor: "pointer" }} className={getNumberColor(stock.Price)}>{stock.Price}</td>
+                                                <td
+                                                    style={{ padding: '1px 20px', cursor: "pointer" }}
+                                                    className={getNumberColor(stock.Price)}
+                                                >
+                                                    {stock.Price ? `$${parseFloat(stock.Price.replace("USD", "").trim())}` : "-"}
+                                                </td>
                                                 <td className={getNumberColor(stock["1D"])}>{stock["1D"]}</td>
                                                 <td className={getNumberColor(stock["1M"])}>{stock["1M"]}</td>
                                                 <td className={getNumberColor(stock["1Y"])}>{stock["1Y"]}</td>
