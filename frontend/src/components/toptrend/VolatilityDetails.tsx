@@ -118,7 +118,7 @@ export default function VolatilityDetails() {
             </div>
 
             <div className="container mb-5">
-                {error && <div className="alert alert-danger">{error}</div>}
+                {/* {error && <div className="alert/ alert-danger">{error}</div>} */}
                 {loading ? (
                     <div className="d-flex justify-content-center">Loading...</div>
                 ) : (

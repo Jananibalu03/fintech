@@ -51,6 +51,22 @@ p {
     font-family: var(--font-montserrat);
 }
 
+
+.common-btn{
+    background-color: #00609c;
+    color: #fff;
+    border: 0px;
+}
+
+
+
+
+
+
+
+
+
+
 .chat-icon {
     position: fixed;
     bottom: 8px;

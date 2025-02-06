@@ -65,7 +65,6 @@ export default function Bot() {
                             ref={chatWindowRef}
 
                         >
-
                             {chat.map((entry, index) => (
                                 <div
                                     key={index}
@@ -75,8 +74,11 @@ export default function Bot() {
                                             ? "user-bubble"
                                             : "bot-bubble"
                                         }`}
-                                    dangerouslySetInnerHTML={{ __html: entry.message }}
+                                    dangerouslySetInnerHTML={{
+                                        __html: entry.message.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'), // This will replace **text** with <b>text</b>
+                                    }}
                                 />
+
                             ))}
                             {loading && <div className="chat-bubble">Loading...</div>}
                         </div>

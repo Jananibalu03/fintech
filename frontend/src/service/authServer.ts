@@ -1,16 +1,68 @@
 import axios from 'axios';
 import { BASE_URL } from '../config/config';
+import Cookies from "js-cookie";
+import { baseApi } from "../../interceptor";
 
 export const AuthService = {
 
+    login: async (payload: any) => {
+        try {
+            const response = await baseApi.post("authapi/login", payload);
+            if (response.data?.access_token) {
+                Cookies.set("access_token", response.data.access_token, { expires: 7 });
+            }
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.response?.data?.message || "An error occurred while logging in");
+        }
+    },
+    logout: () => {
+        Cookies.remove("access_token");
+    },
+
+    registration: async (payload: any) => {
+        try {
+            const response = await axios.post(`${BASE_URL}authapi/register`, payload);
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
+        }
+    },
+
+    forgetpassword: async (payload: any) => {
+        try {
+            const response = await axios.post(`${BASE_URL}authapi/forgotpassword`, payload);
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.response?.data?.message || 'An error occurred while sending the request');
+        }
+    },
+
+    resetpassword: async (payload: { token: string; password: string; confirm_password: string }) => {
+        try {
+            const response = await axios.post(
+                `${BASE_URL}authapi/resetpassword?token=${payload.token}`, 
+                {
+                    password: payload.password,
+                    confirm_password: payload.confirm_password  
+                },
+                {
+                    headers: { "Content-Type": "application/json" }
+                }
+            );
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.response?.data?.message || 'An error occurred while resetting the password');
+        }
+    },
+
     fetchVolatility: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}volatility`, {
+            const response = await axios.get(`${BASE_URL}api/stock/volatility`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
@@ -18,36 +70,35 @@ export const AuthService = {
 
     hignin52: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}52weekshigh`, {
+            const response = await axios.get(`${BASE_URL}api/stock/52weekshigh`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
+
 
     lowin52: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}52weekslow`, {
+            const response = await axios.get(`${BASE_URL}api/stock/52weekslow`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
 
+
     lowperatio: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}lowperatio`, {
+            const response = await axios.get(`${BASE_URL}api/stock/lowperatio`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
@@ -55,12 +106,11 @@ export const AuthService = {
 
     topgain: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}todaytopgain`, {
+            const response = await axios.get(`${BASE_URL}api/stock/todaytopgain`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
@@ -68,12 +118,11 @@ export const AuthService = {
 
     toploss: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}todaytoploss`, {
+            const response = await axios.get(`${BASE_URL}api/stock/todaytoploss`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
@@ -81,73 +130,69 @@ export const AuthService = {
 
     topperform: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}topperformance`, {
+            const response = await axios.get(`${BASE_URL}api/stock/topperformance`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
-
 
     underfiftydollor: async (Seach: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}abovetendoller`, {
+            const response = await axios.get(`${BASE_URL}api/stock/abovetendoller`, {
                 params: { Seach, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
 
+
     undertendollar: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}undertendollar`, {
+            const response = await axios.get(`${BASE_URL}api/stock/undertendollar`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
 
     negativebeta: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}negativebeta`, {
+            const response = await axios.get(`${BASE_URL}api/stock/negativebeta`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
+
 
     lowbeta: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}lowbeta`, {
+            const response = await axios.get(`${BASE_URL}api/stock/lowbeta`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
 
+
     highriskandreward: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}highriskandreward`, {
+            const response = await axios.get(`${BASE_URL}api/stock/highriskandreward`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
@@ -155,12 +200,11 @@ export const AuthService = {
 
     debtfreestocks: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}debtfreestocks`, {
+            const response = await axios.get(`${BASE_URL}api/stock/debtfreestocks`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
@@ -168,24 +212,22 @@ export const AuthService = {
 
     dividend: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}dividend`, {
+            const response = await axios.get(`${BASE_URL}api/stock/dividend`, {
                 params: { Search, page, limit },
             });
             return response.data;
-        } catch (error) {
-            console.error('Error fetching 52-week high data:', error);
+        } catch (error: any) {
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
 
     highdividend: async (Search: any, page: number, limit: number) => {
         try {
-            const response = await axios.get(`${BASE_URL}highdividendyield`, {
+            const response = await axios.get(`${BASE_URL}api/stock/highdividendyield`, {
                 params: { Search, page, limit },
             });
             return response.data;
         } catch (error: any) {
-            console.error('Error fetching 52-week high data:', error);
             throw new Error(error.response?.data?.message || 'An error occurred while fetching the data');
         }
     },
@@ -193,8 +235,8 @@ export const AuthService = {
 
     searchData: async (symbol: string) => {
         try {
-            const response = await axios.get(`${BASE_URL}Search`, {
-                params: { symbol }, // This will correctly append ?symbol=ibm
+            const response = await axios.get(`${BASE_URL}api/stock/Search`, {
+                params: { symbol },
             });
             return response.data;
         } catch (error: any) {
@@ -206,7 +248,7 @@ export const AuthService = {
 
     graphData: async (symbol: string, range_type: any) => {
         try {
-            const response = await axios.get(`${BASE_URL}graph`, {
+            const response = await axios.get(`${BASE_URL}api/stock/graph`, {
                 params: { symbol, range_type },
             });
             return response.data;

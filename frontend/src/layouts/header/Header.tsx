@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import logo from "../../assets/images/fin-logo.png";
 
 
@@ -54,9 +55,6 @@ export default function Header() {
                                 <a className="nav-link" href="/top-trend">Top trend</a>
                             </li>
 
-                            <li className="nav-item">
-                                <a className="nav-link" href="#">Assistance</a>
-                            </li>
                             {/* <li className="nav-item dropdown">
                                 <Link
                                     to="#"

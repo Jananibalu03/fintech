@@ -200,8 +200,8 @@ export default function UnderTendollar() {
                         <td>{stock.SMA50}</td>
                         <td>{stock.SMA200}</td>
                         <td>{stock.Beta}</td>
-                        <td>{stock.RSI.toFixed(2)}</td>
-                        <td>{stock.PERatio.toFixed(2)}</td>
+                        <td>{stock.RSI}</td>
+                        <td>{stock.PERatio}</td>
                         <td>{stock.EPS}</td>
                         <td>{stock.Sector}</td>
                       </tr>

@@ -86,7 +86,6 @@ export default function HighRishandReward() {
     { label: "PBRatioTTM", key: "PBRatioTTM" },
     { label: "EarningGrowthTTM", key: "EarningGrowthTTM" },
     { label: "DebttoEquityTTM", key: "DebttoEquityTTM" },
-    { label: "RisktoRewardRatioTTM", key: "RisktoRewardRatioTTM" },
     { label: "DividendYieldTTM", key: "DividendYieldTTM" },
     { label: "Sector", key: "Sector" },
   ];
@@ -177,7 +176,6 @@ export default function HighRishandReward() {
                         <td>{stock.PBRatioTTM}</td>
                         <td>{stock.EarningGrowthTTM}</td>
                         <td>{stock.DebttoEquityTTM}</td>
-                        <td>{stock.RisktoRewardRatioTTM}</td>
                         <td>{stock.DividendYieldTTM}</td>
                         <td>{stock.Sector}</td>
                       </tr>

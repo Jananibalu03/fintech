@@ -116,6 +116,10 @@ export default function LowPE() {
       </div>
 
       <div className="container mb-5">
+        {loading ? (
+          <div>Loading...</div>
+        ) : (
+          <>
         <div className="table-responsive mb-0" style={{ overflowX: 'auto' }}>
           <table className="table table-hover table-bordered mb-0">
             <thead>
@@ -174,6 +178,8 @@ export default function LowPE() {
             </tbody>
           </table>
         </div>
+
+
         <div className="d-flex justify-content-center m-3">
           <Pagination
             current={currentPage}
@@ -184,6 +190,9 @@ export default function LowPE() {
           />
 
         </div>
+          </>
+        )}
+
       </div>
     </section>
   );

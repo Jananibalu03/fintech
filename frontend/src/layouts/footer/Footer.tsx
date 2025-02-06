@@ -8,7 +8,7 @@ export default function Footer() {
 
     return (
         <footer>
-            <div className="footer-container">
+            <div className="footer-container p-2">
                 <div className="footer-section">
                     <a href="/">
                         <img src={whitelogo} alt='logo' className="main-logo mb-3" />
