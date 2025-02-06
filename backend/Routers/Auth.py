@@ -2,15 +2,34 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 import httpx
 from pydantic import BaseModel
-from Models.StocksModels import Users
+from Models.StocksModels import Users,PasswordRest
 import re
 import bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi_sqlalchemy import db
 import os
+import random
+import uuid
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from dotenv import load_dotenv
 
 AuthRouter =  APIRouter()
+
+PasswordResetLink_BaseUrl = "http://localhost:5173/resetpassword"
+
+conf = ConnectionConfig(
+    MAIL_USERNAME="iamjagadeesh.d@gmail.com",
+    MAIL_PASSWORD="ptkjiazovhzlpiyp", 
+    MAIL_FROM="iamjagadeesh.d@gmail.com",
+    MAIL_PORT=465,  
+    MAIL_SERVER="smtp.gmail.com",
+    MAIL_STARTTLS=False,  
+    MAIL_SSL_TLS=True,  
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
+)
+
 
 #username validation
 def validate_username(username):
@@ -42,10 +61,10 @@ class Register(BaseModel):
 @AuthRouter.post('/register')
 def Register(UserDetails : Register):
 
-    username = UserDetails.username
-    email = UserDetails.email
-    password = UserDetails.password
-    confirm_password = UserDetails.confirm_password
+    username = UserDetails.username.strip()
+    email = UserDetails.email.strip()
+    password = UserDetails.password.strip()
+    confirm_password = UserDetails.confirm_password.strip()
 
     query = db.session.query(Users)
 
@@ -96,8 +115,8 @@ class Login(BaseModel):
 @AuthRouter.post('/login')
 def Login(UserLogin: Login):
 
-    email=UserLogin.email
-    password=UserLogin.password
+    email=UserLogin.email.strip()
+    password=UserLogin.password.strip()
     
     query = db.session.query(Users)
 
@@ -122,4 +141,122 @@ def Login(UserLogin: Login):
             return JSONResponse(status_code=403,content={'message':'Incorrect Password'})
     else:
         return JSONResponse(status_code=403, content={'message':'User not found!'})
+
+
+
+async def SendEmail(link: str, email: str, username: str):
+    try:
+        body = f"""
+                    <html>
+                    <body>
+                        <p>Dear {username},</p>
+                        <p>We received a request to reset the password for your Fintech Account.</p>
+                        <p>If you made this request, use the Link below to proceed:</p>
+                        <p><strong>Your Password Reset Link: {link}</strong></p>
+                        <p>This Link will expire in 10 minutes.</p>
+                        <p>If you didn't request a password reset, please ignore this email. Your account is safe, and no changes will be made.</p>
+                        <p>If you need further assistance, please visit the Fintech Account Help Center.</p>
+                        <p>Thank you.</p>
+                    </body>
+                    </html>
+                """
+            
+        message = MessageSchema(
+            subject="Password Reset Request From Fintech",
+            recipients=[email],
+            body=body,
+            subtype='html'
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
+        return True
+    except Exception as e:
+        return False
+
+def ResetLink(timer):
+    generate_uuid = str(uuid.uuid4())
+    expiry = datetime.now() + timedelta(minutes=timer)
+    return generate_uuid, expiry
+
+class forgotPassword(BaseModel):
+    email: str    
+
+@AuthRouter.post('/forgotpassword')
+async def ForgotPassword(UserEmail:forgotPassword):
+
+    email = UserEmail.email.strip()
+
+    user = db.session.query(Users)
+
+    # Validate email format
+    if not validate_email_format(email):
+        return JSONResponse(status_code=403, content={'message': 'Invalid email address'})
     
+    if not email:
+        return JSONResponse(status_code=403, content={"message": "Empty Values not Allowed"})
+    
+    exist_user = user.filter_by(email=email).first()
+
+    if exist_user:
+        unique_id, expiry = ResetLink(10)
+
+        link = f"{PasswordResetLink_BaseUrl}?token={unique_id}"
+
+        result = await SendEmail(link,exist_user.email,exist_user.username)
+
+        if result:
+            Savetoken = PasswordRest(user_id=exist_user.id,token = unique_id, expiry = expiry)
+            db.session.add(Savetoken)
+            db.session.commit()
+            db.session.refresh(Savetoken)
+
+            return JSONResponse(status_code = 200, content={"message":"Mail Sent Successfully"})
+        else:
+            return JSONResponse(status_code = 502, content={"message":"Unable to Send Mail"})
+    else:
+        return JSONResponse(status_code = 404, content={"message":"User Not Found"})
+
+class ResetPass(BaseModel):
+    password : str
+    confirm_password: str
+
+@AuthRouter.post('/resetpassword')
+def ResetPassword(token : str,Reset : ResetPass):
+
+    password = Reset.password.strip()
+    confirm_password = Reset.confirm_password.strip()
+
+    if password != confirm_password:
+        return JSONResponse(status_code=403, content={"message": "Password Not Match"})
+
+    query = db.session.query(PasswordRest).filter_by(token=token).first()
+
+    user = db.session.query(Users).filter_by(id = query.user_id).first()
+
+    if not user:
+        return JSONResponse(status_code=404, content={"message": "User not found."})
+    
+    if query:
+
+        if datetime.now() < query.expiry:
+            hashed_password = hash_password(password)
+            user.password = hashed_password
+            db.session.delete(query)
+            db.session.commit()
+            db.session.refresh(user)
+            return JSONResponse(status_code = 200, content={"message": "Password reset successful!"})
+        else:
+            db.session.delete(query)
+            db.session.commit()
+            return JSONResponse(status_code = 403, content={"message": "Token Expired"})
+    else:
+        return JSONResponse(status_code = 404, content= {"message": "Token Not Found"})
+
+
+
+
+
+        
+
+        

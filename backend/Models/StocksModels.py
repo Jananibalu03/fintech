@@ -12,6 +12,14 @@ class Users(Base):
     email = Column(String(255))
     password = Column(String(255))
 
+class PasswordRest(Base):
+    __tablename__ = "passwordresettoken"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer)
+    token = Column(String(255))
+    expiry = Column(DateTime)
+
 class Symbols(Base):
     __tablename__ = "symbol"
     id = Column(Integer, primary_key=True, index=True)
