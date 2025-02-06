@@ -13,6 +13,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi.middleware.cors import CORSMiddleware
 from Routers.chatbot import ChatRouter
+from Routers.Auth import AuthRouter
 
 app = FastAPI()
 
@@ -38,6 +39,7 @@ Create_table()
 #routers
 app.include_router(StockRouter,prefix='/Api',tags=["StockData"])
 app.include_router(StockIdeaRouter,prefix='/api',tags=["StockIdeas"])
+app.include_router(AuthRouter,prefix='/authapi',tags=["Auth"])
 app.include_router(ChatRouter,prefix='/botapi',tags=["Chatbot"])
 
 # # CORS Configuration

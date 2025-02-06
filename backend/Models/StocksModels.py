@@ -4,6 +4,14 @@ from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
+class Users(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(150), unique=True, nullable=False)
+    email = Column(String(255))
+    password = Column(String(255))
+
 class Symbols(Base):
     __tablename__ = "symbol"
     id = Column(Integer, primary_key=True, index=True)
@@ -17,7 +25,7 @@ class StockInfo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     symbol = Column(String(20), nullable=False)
-    name = Column(String(255), nullable=False)
+    name = Column(String(255))
     price = Column(Float)
     changesPercentage = Column(Float)
     change = Column(Float)
