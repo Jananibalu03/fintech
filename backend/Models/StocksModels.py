@@ -51,8 +51,7 @@ class StockInfo(Base):
     previousClose = Column(Float)
     eps = Column(Float)
     pe = Column(Float)
-    # onedayvolatility = Column(String(100))
-    timestamp = Column(Date)
+    date = Column(DateTime)
 
 class CompanyProfile(Base):
     __tablename__ = "companyprofile"
@@ -79,7 +78,7 @@ class StockPerformance(Base):
     __tablename__ = 'stockperformance'
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    symbol = Column(String(20), nullable=False, unique=True)
+    symbol = Column(String(20), nullable=False)
     one_day = Column(Float)
     five_day = Column(Float)
     one_month = Column(Float)
@@ -96,7 +95,7 @@ class FinancialMetrics(Base):
     __tablename__ = 'financialmetrics'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    symbol = Column(String(20), nullable=False, unique=True)
+    symbol = Column(String(20), nullable=False)
     dividendYielTTM = Column(Float)
     dividendYielPercentageTTM = Column(Float)
     payoutRatioTTM = Column(Float)
@@ -118,22 +117,22 @@ class TechnicalIndicator(Base):
     __tablename__ = "rsitechnicalindicator"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    symbol = Column(String(20))
+    symbol = Column(String(20),nullable=False)
     date = Column(Date)
     rsi = Column(Float)
+
 
 class FinancialGrowth(Base):
     __tablename__ = "financialgrowth"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    symbol = Column(String(20))
+    symbol = Column(String(20),nullable=False)
     date = Column(Date)
     calendarYear = Column(String(10))
     period = Column(String(10))
     revenueGrowth = Column(Float)
     grossProfitGrowth = Column(Float)
     ebitgrowth = Column(Float)
-    operatingIncomeGrowth = Column(Float)
     netIncomeGrowth = Column(Float)
     epsgrowth = Column(Float)
    
@@ -141,6 +140,6 @@ class StandardDeviation(Base):
     __tablename__ = "standarddevation"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    symbol = Column(String(20))
+    symbol = Column(String(20),nullable=False)
     date = Column(Date)
     std = Column(Float)

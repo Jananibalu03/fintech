@@ -14,8 +14,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 import pytz
 from sqlalchemy import and_
 from collections import defaultdict
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 
-from apscheduler.executors.pool import ThreadPoolExecutor
 
 load_dotenv()
 router = APIRouter()
@@ -38,131 +38,52 @@ FINANCIAL_GROWTH_URL = "https://financialmodelingprep.com/api/v3/financial-growt
 
 StandardDeviation_URL = "https://financialmodelingprep.com/api/v3/technical_indicator/1day"
 
+
+Stock_Symbols = "https://financialmodelingprep.com/api/v3/stock-screener"
+
+api_key = os.getenv("API_KEY")
+
 @router.get("/UploadSymbols")
 async def Upload_Symbols():
-    params = {
-        "apikey": os.getenv("API_KEY")
-    }
+    market_caps = [
+        {"key": "marketCapMoreThan", "value": 1000000000},
+        {"key": "marketCapLowerThan", "value": 1000000000},
+        {"key": "betaLowerThan", "value": 0}
+    ]
     try:
-        tickers = [
-            'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'TSLA', 'ADBE', 'PYPL', 'NFLX', 
-            'INTC', 'MRNA', 'QCOM', 'PEP', 'SBUX', 'CSCO', 'SPOT', 'AMD', 'NOW', 'SQ', 
-            'TTD', 'ILMN', 'ASML', 'BMY', 'BIIB', 'WDAY', 'JNJ', 'JPM', 'XOM', 'KO', 
-            'DIS', 'PG', 'CVX', 'V', 'PFE', 'HD', 'MCD', 'MRK', 'BA', 'CAT', 'VZ', 
-            'IBM', 'XOM', 'LMT', 'NKE', 'CL', 'T', 'PEP', 'ABBV', 'WBA', 'GE', 
-            'TGT', 'AXP', 'GS', 'CVX', 'MMM', 'UNH', 'AMT', 'SPGI', 'ABT', 'IBM'
-        ]
-        
+        exchanges = ["NYSE",'NASDAQ','AMEX']
         with httpx.Client() as r:
-            response = r.get(Symbol_Base_URL, params=params)
-            data = response.json()
-
-
-            for comp in data:
-
-                if comp['symbol'] in tickers:
-                    default_company = Symbols(
-                        Csymbol=comp["symbol"],
-                        Cname=comp["name"],
-                        exchange=comp["exchangeShortName"]
-                    )
-                    db.session.add(default_company)
-                    db.session.commit()
-                    db.session.refresh(default_company)
-
-        exchanges = defaultdict(int)
-        exchange_name = []
-        count = 0
-        with httpx.Client() as r:
-            response = r.get(Symbol_Base_URL, params=params)
-            data = response.json()
-
-            for comp in data:
-
-                if count > 50:
-                    break
-
-                exchange_name = comp["exchangeShortName"]
-
-                # Skip if already reached the 20-symbol limit
-                if exchanges[exchange_name] >= 5:
-                    continue
-
-                # Create StockCompany object and store it for bulk insert
-                stock_companies = Symbols(
-                    Csymbol=comp["symbol"],
-                    Cname=comp["name"],
-                    exchange=exchange_name
-                )
-                db.session.add(stock_companies)
-                db.session.commit()
-                db.session.refresh(stock_companies)
-                exchanges[exchange_name] += 1
-                count+=1
-
-      
+            for ticker in exchanges:
+                for cap in market_caps:
+                    params = {
+                        cap['key']: cap['value'],
+                        "exchange": ticker,
+                        "apikey": api_key,
+                        "limit": 50
+                    }
+                    response = r.get(Stock_Symbols, params=params)
+                    data = response.json()
+                    for record in data:
+                        if cap['key'] == "betaLowerThan":
+                            if record["beta"] < 0:
+                                SaveTickers = Symbols(Csymbol=record['symbol'],Cname=record['companyName'],exchange=record['exchangeShortName'])
+                                db.session.add(SaveTickers)
+                                db.session.commit()
+                                db.session.refresh(SaveTickers)
+                        else:
+                            SaveTickers = Symbols(Csymbol=record['symbol'],Cname=record['companyName'],exchange=record['exchangeShortName'])
+                            db.session.add(SaveTickers)
+                            db.session.commit()
+                            db.session.refresh(SaveTickers)
+                    
         return JSONResponse(status_code=200,content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
 
-@router.get("/Symbols")
-async def GetSymbols( 
-    symbol: Optional[str] = Query(None),
-    exchange: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, le=100)
-    ):
-    try:
-        skip = (page - 1) * limit
-        query = db.session.query(Symbols)
-
-        # Apply filters if query parameters are provided
-        if symbol:
-            query = query.filter(Symbols.Csymbol.ilike(f"%{symbol}%"))
-        if exchange:
-            query = query.filter(Symbols.exchange.ilike(f"%{exchange}%"))
-
-        # Get the total count of users that match the filters
-        total_count = query.count()
-
-        # Apply pagination
-        result = query.offset(skip).limit(limit).all()
-
-        companies = [{"Symbol": result.Csymbol,"Name": result.Cname, "Exchange": result.exchange} for result in result]
-    
-        # Return paginated users and total count
-        return JSONResponse(status_code = 200, content={"total": total_count, "Compines": companies})
-    except Exception as e:
-        return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
-
-
-# def fetch_volatility_in_batch(symbols):
-#     params = {
-#         "type": "standardDeviation",
-#         "period": 10,
-#         "apikey": os.getenv("API_KEY")
-#     }
-
-#     if not symbols:
-#         return None
-
-#     with httpx.Client() as r:
-#         try:
-#             res = r.get(f"{StandardDeviation_URL}/{symbols}", params=params, timeout=30)
-#             response = res.json()
-#             if response:  # Ensure response is not empty
-#                 item = response[0] 
-#                 return item.get("standardDeviation", 0) * 100
-
-#         except (IndexError, KeyError, TypeError) as e:
-#             print(f"Error fetching volatility for {e}")
-
-
-@router.get("/UploadStocks")
+@router.get("/UploadStocks") #--history required updated every 30 minutes per day
 def Upload_Stocks():
     print("task1")
     params = {"apikey": os.getenv("API_KEY")}
-    print(os.getenv("API_KEY"))
 
     try:
         with db():
@@ -172,126 +93,71 @@ def Upload_Stocks():
 
                 # Fetch all stock data from API in a single request
                 symbol_query = db.session.query(Symbols).all()
-                # stock_data_list = []
 
                 for symbol in symbol_query:
                     response = r.get(f"{Stock_Base_URL}/{symbol.Csymbol}", params=params, timeout=30)
                     res = response.json()
 
                     for data in res:
-                        stock_info = existing_symbols.get(data.get("symbol"))
+                        # stock_info = existing_symbols.get(data.get("symbol"))
 
-                        if not stock_info:  
-                            # New entry
-                            stock_data_list = StockInfo(
-                                symbol=data.get("symbol"),
-                                name=data.get("name"),
-                                price=data.get("price"),
-                                changesPercentage=data.get("changesPercentage"),
-                                change=data.get("change"),
-                                dayLow=data.get("dayLow"),
-                                dayHigh=data.get("dayHigh"),
-                                yearHigh=data.get("yearHigh"),
-                                yearLow=data.get("yearLow"),
-                                marketCap=data.get("marketCap"),
-                                priceAvg50=data.get("priceAvg50"),
-                                priceAvg200=data.get("priceAvg200"),
-                                exchange=data.get("exchange"),
-                                volume=data.get("volume"),
-                                avgVolume=data.get("avgVolume"),
-                                open_price=data.get("open"),
-                                previousClose=data.get("previousClose"),
-                                eps=data.get("eps"),
-                                pe=data.get("pe"),
-                                timestamp=datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
-                            )
+                        # if not stock_info:  
+                        # New entry
+                        stock_data_list = StockInfo(
+                            symbol=data.get("symbol"),
+                            name=data.get("name"),
+                            price=data.get("price"),
+                            changesPercentage=data.get("changesPercentage"),
+                            change=data.get("change"),
+                            dayLow=data.get("dayLow"),
+                            dayHigh=data.get("dayHigh"),
+                            yearHigh=data.get("yearHigh"),
+                            yearLow=data.get("yearLow"),
+                            marketCap=data.get("marketCap"),
+                            priceAvg50=data.get("priceAvg50"),
+                            priceAvg200=data.get("priceAvg200"),
+                            exchange=data.get("exchange"),
+                            volume=data.get("volume"),
+                            avgVolume=data.get("avgVolume"),
+                            open_price=data.get("open"),
+                            previousClose=data.get("previousClose"),
+                            eps=data.get("eps"),
+                            pe=data.get("pe"),
+                            date=datetime.now()
+                        )
 
-                            db.session.add(stock_data_list)
-                            db.session.commit()
-                            db.session.refresh(stock_data_list)
-                        else:
-                            # Update existing record
-                            stock_info.name = data.get("name", stock_info.name)
-                            stock_info.price = data.get("price", stock_info.price)
-                            stock_info.changesPercentage = data.get("changesPercentage", stock_info.changesPercentage)
-                            stock_info.change = data.get("change", stock_info.change)
-                            stock_info.dayLow = data.get("dayLow", stock_info.dayLow)
-                            stock_info.dayHigh = data.get("dayHigh", stock_info.dayHigh)
-                            stock_info.yearHigh = data.get("yearHigh", stock_info.yearHigh)
-                            stock_info.yearLow = data.get("yearLow", stock_info.yearLow)
-                            stock_info.marketCap = data.get("marketCap", stock_info.marketCap)
-                            stock_info.priceAvg50 = data.get("priceAvg50", stock_info.priceAvg50)
-                            stock_info.priceAvg200 = data.get("priceAvg200", stock_info.priceAvg200)
-                            stock_info.exchange = data.get("exchange", stock_info.exchange)
-                            stock_info.volume = data.get("volume", stock_info.volume)
-                            stock_info.avgVolume = data.get("avgVolume", stock_info.avgVolume)
-                            stock_info.open_price = data.get("open", stock_info.open_price)
-                            stock_info.previousClose = data.get("previousClose", stock_info.previousClose)
-                            stock_info.eps = data.get("eps", stock_info.eps)
-                            stock_info.pe = data.get("pe", stock_info.pe)
-                            stock_info.timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
+                        db.session.add(stock_data_list)
+                        db.session.commit()
+                        db.session.refresh(stock_data_list)
+                        # else:
+                        #     # Update existing record
+                        #     stock_info.price = data.get("price", stock_info.price)
+                        #     stock_info.changesPercentage = data.get("changesPercentage", stock_info.changesPercentage)
+                        #     stock_info.change = data.get("change", stock_info.change)
+                        #     stock_info.dayLow = data.get("dayLow", stock_info.dayLow)
+                        #     stock_info.dayHigh = data.get("dayHigh", stock_info.dayHigh)
+                        #     stock_info.yearHigh = data.get("yearHigh", stock_info.yearHigh)
+                        #     stock_info.yearLow = data.get("yearLow", stock_info.yearLow)
+                        #     stock_info.marketCap = data.get("marketCap", stock_info.marketCap)
+                        #     stock_info.priceAvg50 = data.get("priceAvg50", stock_info.priceAvg50)
+                        #     stock_info.priceAvg200 = data.get("priceAvg200", stock_info.priceAvg200)
+                        #     stock_info.exchange = data.get("exchange", stock_info.exchange)
+                        #     stock_info.volume = data.get("volume", stock_info.volume)
+                        #     stock_info.avgVolume = data.get("avgVolume", stock_info.avgVolume)
+                        #     stock_info.open_price = data.get("open", stock_info.open_price)
+                        #     stock_info.previousClose = data.get("previousClose", stock_info.previousClose)
+                        #     stock_info.eps = data.get("eps", stock_info.eps)
+                        #     stock_info.pe = data.get("pe", stock_info.pe)
+                        #     stock_info.timestamp = datetime.fromtimestamp(data.get("timestamp")).strftime("%Y-%m-%d")
 
-                            db.session.commit()
-                            db.session.refresh(stock_info)
+                        #     db.session.commit()
+                        #     db.session.refresh(stock_info)
 
-                return JSONResponse(status_code=200, content={"message": "Data Successfully Inserted."})
-
+            return JSONResponse(status_code=200, content={"message": "Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403, detail=f"An Error Occurred! {e.args}")
 
-@router.get("/Stocks")
-async def StocksDetails( 
-    symbol: Optional[str] = Query(None),
-    exchange: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, le=100)
-    ):
-    try:
-        skip = (page - 1) * limit
-        query = db.session.query(StockInfo)
-
-        # Apply filters if query parameters are provided
-        if symbol:
-            query = query.filter(StockInfo.symbol.ilike(f"%{symbol}%"))
-        if exchange:
-            query = query.filter(StockInfo.exchange.ilike(f"%{exchange}%"))
-    
-
-        # Get the total count of users that match the filters
-        total_count = query.count()
-
-        # Apply pagination
-        result = query.offset(skip).limit(limit).all()
-
-        companies = [{  "symbol" : result.symbol,
-                        "name" : result.name,
-                        "price" : result.price,
-                        "changesPercentage" : result.changesPercentage,
-                        "change" : result.change,
-                        "dayLow" : result.dayLow,
-                        "dayHigh" : result.dayHigh,
-                        "52weekshigh" : result.yearHigh,
-                        "52weeklow" : result.yearLow,
-                        "marketCap" : result.marketCap,
-                        "SMA50" : result.priceAvg50,
-                        "SMA200" : result.priceAvg200,
-                        "exchange" : result.exchange,
-                        "volume" : result.volume,
-                        "avgVolume" : result.avgVolume,
-                        "open_price" :result.open_price ,
-                        "previousClose" : result.previousClose,
-                        "Employeepershare" : result.eps,
-                        "PERatio" : result.pe,
-                        "timestamp" :  result.timestamp.strftime("%Y-%m-%d")
-                    } for result in result]
-    
-        # Return paginated users and total count
-        return JSONResponse(status_code = 200, content={"total": total_count, "Compines": companies})
-    except Exception as e:
-        return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
-    
-
-@router.get("/UploadCompanyProfiles")
+@router.get("/UploadCompanyProfiles") #-- no history required update monthly once
 def Upload_CompanyProfile():
     print("task2")
     params = {
@@ -350,55 +216,7 @@ def Upload_CompanyProfile():
     except Exception as e:
         raise HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
     
-
-@router.get("/CompanyProfiles")
-async def CompanyProfile_Details( 
-    symbol: Optional[str] = Query(None),
-    exchange: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, le=100)
-    ):
-    try:
-        skip = (page - 1) * limit
-        query = db.session.query(CompanyProfile)
-
-        # Apply filters if query parameters are provided
-        if symbol:
-            query = query.filter(CompanyProfile.symbol.ilike(f"%{symbol}%"))
-        if exchange:
-            query = query.filter(CompanyProfile.exchange.ilike(f"%{exchange}%"))
-
-        # Get the total count of users that match the filters
-        total_count = query.count()
-
-        # Apply pagination
-        result = query.offset(skip).limit(limit).all()
-
-        companies = [{  
-                        "symbol" : result.symbol,
-                        "beta" : result.beta,
-                        "lastDiv": result.lastDiv,
-                        "companyName": result.companyName,
-                        "industry": result.industry,
-                        "website": result.website,
-                        "description": result.description,
-                        "sector": result.sector,
-                        "country": result.country,
-                        "phone": result.phone,
-                        "address": result.address,
-                        "city": result.city,
-                        "state": result.state,
-                        "zip_code": result.zip_code,
-                        "ipoDate":result.ipoDate.strftime("%Y-%m-%d")
-                        
-                    } for result in result]
-    
-        # Return paginated users and total count
-        return JSONResponse(status_code = 200, content={"total": total_count, "Compines": companies})
-    except Exception as e:
-        return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
-    
-@router.get("/UploadStocksPerformance")
+@router.get("/UploadStocksPerformance") #-- no history required updated end of the every day
 def Upload_StocksPerformance():
     print("task3")
     params = {
@@ -428,7 +246,7 @@ def Upload_StocksPerformance():
                                                                     three_year=data.get("3Y"),
                                                                     five_year=data.get("5Y"),
                                                                     ten_year=data.get("10Y"),
-                                                                    max_val=data.get("max"),
+                                                                    max_val=data.get("max")
                                                                 )
                             db.session.add(Stock_performance_list)
                             db.session.commit()
@@ -454,52 +272,7 @@ def Upload_StocksPerformance():
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
     
-
-@router.get("/StockPerformance")
-async def Stock_Performance( 
-    symbol: Optional[str] = Query(None),
-    exchange: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, le=100)
-    ):
-    try:
-        skip = (page - 1) * limit
-        query = db.session.query(StockPerformance)
-
-        # Apply filters if query parameters are provided
-        if symbol:
-            query = query.filter(StockPerformance.symbol.ilike(f"%{symbol}%"))
-        if exchange:
-            query = query.filter(StockPerformance.exchange.ilike(f"%{exchange}%"))
-
-        # Get the total count of users that match the filters
-        total_count = query.count()
-
-        # Apply pagination
-        result = query.offset(skip).limit(limit).all()
-
-        companies = [{  
-                        "symbol": result.symbol,
-                        "one_day": result.one_day,
-                        "five_day": result.five_day,
-                        "one_month": result.one_month,
-                        "three_month": result.three_month,
-                        "six_month": result.six_month,
-                        "ytd": result.ytd,
-                        "one_year": result.one_year,
-                        "three_year": result.three_year,
-                        "five_year": result.five_year,
-                        "ten_year": result.ten_year,
-                        "max_val": result.max_val,
-                        
-                    } for result in result]
-    
-        # Return paginated users and total count
-        return JSONResponse(status_code = 200, content={"total": total_count, "Compines": companies})
-    except Exception as e:
-        return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
-    
-@router.get("/UploadFinancialMetrics")
+@router.get("/UploadFinancialMetrics") #-- no history required update annualy/quartly 
 def Upload_FinancialMetrics():
     print("task4")
 
@@ -569,7 +342,7 @@ def Upload_FinancialMetrics():
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
 
-@router.get("/UploadTechnicalIndicator")
+@router.get("/UploadTechnicalIndicator") #-- history required update every day 
 def Technical_Indicator():
     print("task5")
 
@@ -591,10 +364,8 @@ def Technical_Indicator():
                         data = res[0]
                         formatted_date = datetime.strptime(data.get("date"), "%Y-%m-%d %H:%M:%S").date()
                         symbol_id = db.session.query(TechnicalIndicator).filter(
-                            and_(
                                 TechnicalIndicator.date ==  formatted_date,
                                 TechnicalIndicator.symbol == symbol.Csymbol
-                            )
                             ).first()
                         
                         if not symbol_id:
@@ -616,7 +387,7 @@ def Technical_Indicator():
     except Exception as e:
         return HTTPException(status_code=403,detail=f"An Error Occured! {e.args}")
 
-@router.get("/UploadFinancialGrowth")
+@router.get("/UploadFinancialGrowth") #-- history required updated annual/quartly 
 def upload_financial_growth():
     print("task6")
     params = {
@@ -629,21 +400,16 @@ def upload_financial_growth():
             with httpx.Client() as client:
                 symbols = db.session.query(Symbols).all()
 
-                # financial_growth_list = []
-
                 for symbol in symbols:
                     response = client.get(f"{FINANCIAL_GROWTH_URL}/{symbol.Csymbol}", params=params, timeout=30)
                     res = response.json()
-                    
                     if res:
                         data = res[0]
                         formatted_date = datetime.strptime(data.get("date"), "%Y-%m-%d").date()
                         
                         existing_record = db.session.query(FinancialGrowth).filter(
-                            and_(
                                 FinancialGrowth.date == formatted_date,
                                 FinancialGrowth.symbol == symbol.Csymbol
-                            )
                         ).first()
                         
                         if not existing_record:
@@ -675,11 +441,11 @@ def upload_financial_growth():
                             db.session.commit()
                             db.session.refresh(existing_record)
             
-                return JSONResponse({"message": "Financial Growth Data Successfully Inserted."})
+            return JSONResponse({"message": "Financial Growth Data Successfully Inserted."})
     except Exception as e:
         return HTTPException(status_code=403, detail=f"An Error Occurred! {e.args}")
 
-@router.get("/UploadStandardDevation")
+@router.get("/UploadStandardDevation") #-- history required update every day
 def Standard_devation():
     print("task7")
 
@@ -694,19 +460,17 @@ def Standard_devation():
             with httpx.Client() as r:
                 symbol_query = db.session.query(Symbols).all()
 
-
                 for symbol in symbol_query:
                     response = r.get(f"{StandardDeviation_URL}/{symbol.Csymbol}", params = params,  timeout=30)
+                    print(response.url)
+
                     res = response.json()
-                    
                     if res:
                         data = res[0]
                         formatted_date = datetime.strptime(data.get("date"), "%Y-%m-%d %H:%M:%S").date()
                         symbol_id = db.session.query(StandardDeviation).filter(
-                            and_(
                                 StandardDeviation.date ==  formatted_date,
                                 StandardDeviation.symbol == symbol.Csymbol
-                            )
                             ).first()
                         
                         if not symbol_id:
@@ -730,88 +494,74 @@ def Standard_devation():
     
 def Myscheduler():
     scheduler = BackgroundScheduler(timezone=pytz.timezone('US/Eastern'))
-    
-    # Tasks running every 10 minutes
-    frequent_trigger = CronTrigger(hour="9-16", minute="30/5", day_of_week="mon-fri", timezone='US/Eastern')
-    
-    # Tasks running once daily
-    daily_trigger = CronTrigger(hour="9", day_of_week="mon-fri", timezone='US/Eastern')
-    
-    # Task 1 - Every 10 minutes
-    scheduler.add_job(
-        Upload_Stocks,
-        trigger=frequent_trigger,
-        id='my_task1',
-        replace_existing=True,
-        max_instances=2,
-        misfire_grace_time=60,
-        coalesce=True
-    )
-    
-    # Task 2 - Once daily
-    scheduler.add_job(
-        Upload_CompanyProfile,
-        trigger=daily_trigger,
-        id='my_task2',
-        replace_existing=True,
-        max_instances=2,
-        misfire_grace_time=60,
-        coalesce=True
-    )
-    
-    # Task 3 - Once daily
-    scheduler.add_job(
-        Upload_StocksPerformance,
-        trigger=daily_trigger,
-        id='my_task3',
-        replace_existing=True,
-        max_instances=3,
-        misfire_grace_time=120,
-        coalesce=True
-    )
-    
-    # Task 4 - Once daily
-    scheduler.add_job(
-        Upload_FinancialMetrics,
-        trigger=daily_trigger,
-        id='my_task4',
-        replace_existing=True,
-        max_instances=3,
-        misfire_grace_time=120,
-        coalesce=True
-    )
-    
-    # Task 5 - Every 10 minutes
-    scheduler.add_job(
-        Technical_Indicator,
-        trigger=frequent_trigger,
-        id='my_task5',
-        replace_existing=True,
-        max_instances=1,
-        misfire_grace_time=120,
-        coalesce=True
-    )
-    
-    # Task 6 - Once daily
-    scheduler.add_job(
-        upload_financial_growth,
-        trigger=daily_trigger,
-        id='my_task6',
-        replace_existing=True,
-        max_instances=2,
-        misfire_grace_time=60,
-        coalesce=True
-    )
-    
-    # Task 7 - Every 10 minutes
-    scheduler.add_job(
-        Standard_devation,
-        trigger=frequent_trigger,
-        id='my_task7',
-        replace_existing=True,
-        max_instances=2,
-        misfire_grace_time=60,
-        coalesce=True
-    )
-    
+
+    # Define separate job chains for each sequence
+    job_chains = [
+        # Chain 1: Runs every 30 minutes between 9:30 AM and 4 PM
+        [
+            {"id": "my_task1", "func": Upload_Stocks, "trigger": CronTrigger(hour="9-16", minute="*/20", day_of_week="mon-fri", timezone='US/Eastern')},
+            {"id": "my_task5", "func": Technical_Indicator},
+            {"id": "my_task7", "func": Standard_devation}
+        ],
+        # Chain 2: Runs daily at 5 PM on weekdays
+        [
+            {"id": "my_task2", "func": Upload_CompanyProfile, "trigger": CronTrigger(hour="10", minute="35", day_of_week="mon-fri", timezone='US/Eastern')},
+            {"id": "my_task3", "func": Upload_StocksPerformance},
+            {"id": "my_task4", "func": Upload_FinancialMetrics},
+            {"id": "my_task6", "func": upload_financial_growth}
+        ]
+    ]
+
+    def run_next_job(event):
+        """Triggers the next job in the chain after successful completion"""
+        if event.exception:
+            print(f"Job {event.job_id} failed! Skipping chain.")
+            return
+
+        # Find which chain and position the current job occupies
+        current_chain = None
+        current_index = None
+        for chain in job_chains:
+            current_index = next((i for i, job in enumerate(chain) if job["id"] == event.job_id), None)
+            if current_index is not None:
+                current_chain = chain
+                break
+
+        if current_chain is None or current_index is None:
+            return  # Job not part of any chain
+
+        # Schedule next job in the chain if exists
+        if current_index + 1 < len(current_chain):
+            next_job = current_chain[current_index + 1]
+            try:
+                scheduler.add_job(
+                    next_job["func"],
+                    trigger='date',  # Run immediately
+                    id=next_job["id"],
+                    replace_existing=True,
+                    max_instances=1,
+                    coalesce=True,
+                    misfire_grace_time=60
+                )
+                print(f"Chain progression: Started {next_job['id']} after {event.job_id}")
+            except Exception as e:
+                print(f"Error scheduling next job: {e}")
+
+    # Register event listener for job completion
+    scheduler.add_listener(run_next_job, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
+
+    # Schedule the first job of each chain
+    for chain in job_chains:
+        first_job = chain[0]
+        scheduler.add_job(
+            first_job["func"],
+            trigger=first_job["trigger"],
+            id=first_job["id"],
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+            misfire_grace_time=60
+        )
+
     scheduler.start()
+    print("Scheduler started with chained job execution.")

@@ -13,6 +13,7 @@ import random
 import uuid
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from dotenv import load_dotenv
+from typing import Optional
 
 AuthRouter =  APIRouter()
 
@@ -59,7 +60,7 @@ class Register(BaseModel):
     confirm_password: str
 
 @AuthRouter.post('/register')
-def Register(UserDetails : Register):
+async def Register(UserDetails : Register):
 
     username = UserDetails.username.strip()
     email = UserDetails.email.strip()
@@ -102,7 +103,9 @@ def Register(UserDetails : Register):
         db.session.add(users)
         db.session.commit()
         db.session.refresh(users)
-        return JSONResponse(status_code = 201, content={'message': 'User registered successfully!'})
+        result = await SendEmail(email = email,username = username,subject = "Welcome to Finaxis!",mailtype = "registered",link = None)
+
+        return JSONResponse(status_code = 201, content={'message': 'Your account has been created successfully! You can now log in.'})
 
     except:
         return JSONResponse(status_code = 403, content={'message':"Oops! Something went wrong. Please try again later."})
@@ -136,7 +139,7 @@ def Login(UserLogin: Login):
         #check if the password already exist in the database
         if bcrypt.checkpw(password.encode('utf-8'),encrypted_pass.encode('utf-8')):
             result=Get_Token(user_id)
-            return JSONResponse(status_code=200,content={'message':'successfully login','access_token': result})
+            return JSONResponse(status_code=200,content={'message':'Successfully login','access_token': result})
         else:
             return JSONResponse(status_code=403,content={'message':'Incorrect Password'})
     else:
@@ -144,25 +147,40 @@ def Login(UserLogin: Login):
 
 
 
-async def SendEmail(link: str, email: str, username: str):
+async def SendEmail(email: str, username: str, subject : str, mailtype: str,link: Optional[str] = None):
     try:
-        body = f"""
+        body = ""
+        if mailtype == "forgotpass":
+            body = f"""
+                        <html>
+                        <body>
+                            <p>Dear {username},</p>
+                            <p>We received a request to reset the password for your Finaxis Account.</p>
+                            <p>If you made this request, use the Link below to proceed:</p>
+                            <p><strong>Your Password Reset Link: {link}</strong></p>
+                            <p>This Link will expire in 10 minutes.</p>
+                            <p>If you didn't request a password reset, please ignore this email. Your account is safe, and no changes will be made.</p>
+                            <p>If you need further assistance, please visit the Finaxis Account Help Center.</p>
+                            <p>Thank you.</p>
+                        </body>
+                        </html>
+                    """
+        elif mailtype == "registered":
+            body = f"""
                     <html>
                     <body>
                         <p>Dear {username},</p>
-                        <p>We received a request to reset the password for your Fintech Account.</p>
-                        <p>If you made this request, use the Link below to proceed:</p>
-                        <p><strong>Your Password Reset Link: {link}</strong></p>
-                        <p>This Link will expire in 10 minutes.</p>
-                        <p>If you didn't request a password reset, please ignore this email. Your account is safe, and no changes will be made.</p>
-                        <p>If you need further assistance, please visit the Fintech Account Help Center.</p>
-                        <p>Thank you.</p>
+                        <p>Welcome to Finaxis! Your account has been successfully created.</p>
+                        <p>You can now log in and start using our services.</p>
+                        <p>If you have any questions, feel free to contact our support team.</p>
+                        <p>Thank you for choosing Finaxis.</p>
+                        <p>Best regards,</p>
+                        <p>Finaxis Team</p>
                     </body>
                     </html>
                 """
-            
         message = MessageSchema(
-            subject="Password Reset Request From Fintech",
+            subject=subject,
             recipients=[email],
             body=body,
             subtype='html'
@@ -203,7 +221,7 @@ async def ForgotPassword(UserEmail:forgotPassword):
 
         link = f"{PasswordResetLink_BaseUrl}?token={unique_id}"
 
-        result = await SendEmail(link,exist_user.email,exist_user.username)
+        result = await SendEmail(email = exist_user.email,username = exist_user.username,subject = "Password Reset Request From Fintech",mailtype = "forgotpass",link = link)
 
         if result:
             Savetoken = PasswordRest(user_id=exist_user.id,token = unique_id, expiry = expiry)
@@ -232,12 +250,10 @@ def ResetPassword(token : str,Reset : ResetPass):
 
     query = db.session.query(PasswordRest).filter_by(token=token).first()
 
-    user = db.session.query(Users).filter_by(id = query.user_id).first()
-
-    if not user:
-        return JSONResponse(status_code=404, content={"message": "User not found."})
+    
     
     if query:
+        user = db.session.query(Users).filter_by(id = query.user_id).first()
 
         if datetime.now() < query.expiry:
             hashed_password = hash_password(password)
@@ -245,7 +261,7 @@ def ResetPassword(token : str,Reset : ResetPass):
             db.session.delete(query)
             db.session.commit()
             db.session.refresh(user)
-            return JSONResponse(status_code = 200, content={"message": "Password reset successful!"})
+            return JSONResponse(status_code = 200, content={"message": "Password reset successfully!"})
         else:
             db.session.delete(query)
             db.session.commit()
